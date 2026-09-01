@@ -35,5 +35,6 @@ Board.drawYardGlow(ctx, m, 0, 0.9);
 Board.drawBurst(ctx, Board.pointForPos(m, 2, 30, 2).x, Board.pointForPos(m, 2, 30, 2).y, m.cell, 3, 0.45);
 
 const fs = require('fs');
-fs.writeFileSync('/home/user/dev/preview.svg', ctx.toSVG());
+const path = require('path');
+fs.writeFileSync(path.join(__dirname, 'preview.svg'), ctx.toSVG());
 console.log('wrote dev/preview.svg');
