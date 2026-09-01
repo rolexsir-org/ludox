@@ -211,17 +211,17 @@
   /* ========================= match wiring ========================= */
   /* Build the four player control pods (one per seat) with their own die,
      identity, turn state and homes tracker. Kept in sync with engine state. */
-  function cubeFacesHTML() {
-    var pips = { 1:[4], 2:[2,6], 3:[2,4,6], 4:[1,3,7,9], 5:[1,3,5,7,9], 6:[1,3,4,6,7,9] };
-    var face = function (n, cls) {
-      var c = pips[n], s = '';
-      for (var i = 1; i <= 9; i++) s += '<i class="pip' + (c.indexOf(i) >= 0 ? '' : ' hidden') + '" style="' + (c.indexOf(i) >= 0 ? '' : 'display:none') + '"></i>';
-      return '<div class="face ' + cls + '">' + s + '</div>';
-    };
-    return face(1,'f1') + face(6,'f6') + face(3,'f3') + face(4,'f4') + face(2,'f2') + face(5,'f5');
-  }
-  function CUBE_ROT() {
-    return { 1: 'rotateY(0deg)', 2: 'rotateX(-90deg)', 3: 'rotateY(-90deg)', 4: 'rotateY(90deg)', 5: 'rotateX(90deg)', 6: 'rotateY(180deg)' };
+  /* Flat pip die (one face, 9 pips). The heavy six-face CSS cube adds ~216
+     DOM nodes in a 4-player game; a single face is equivalent for the player
+     and lets the browser composite with far less work. */
+  var PIP_ON = { 1:[4], 2:[2,6], 3:[2,4,6], 4:[1,3,7,9], 5:[1,3,5,7,9], 6:[1,3,4,6,7,9] };
+  var PIP_GRID = '<i class="pip"></i><i class="pip"></i><i class="pip"></i><i class="pip"></i><i class="pip"></i>' +
+                 '<i class="pip"></i><i class="pip"></i><i class="pip"></i><i class="pip"></i>';
+  function setPips(cube, value) {
+    if (!cube) return;
+    var on = PIP_ON[value] || PIP_ON[1];
+    var pips = cube.children;
+    for (var i = 0; i < pips.length; i++) pips[i].classList.toggle('on', on.indexOf(i + 1) >= 0);
   }
   function seatPodTemplate() {
     return '<div class="sp-top"><span class="sp-avatar"></span>' +
@@ -229,7 +229,7 @@
       '<span class="sp-team"></span>' +
       '<span class="sp-status"><span class="dot"></span><span class="sp-status-text"></span></span></div>' +
       '<div class="sp-homes"></div>' +
-      '<div class="sp-dice"><button class="sp-roll" aria-label="Roll the dice"><div class="sp-cube">' + cubeFacesHTML() + '</div></button>' +
+      '<div class="sp-dice"><button class="sp-roll" aria-label="Roll the dice"><div class="sp-cube">' + PIP_GRID + '</div></button>' +
       '<span class="sp-hint">Roll</span></div>';
   }
   function ensureSeatPods(st) {
@@ -308,7 +308,6 @@
     if (!ensureSeatPods(st)) return;
     layoutSeatPods(st);
     var g = activeMatch;
-    var rot = CUBE_ROT();
     for (var i = 0; i < st.seats.length; i++) {
       var ref = podEls[i]; if (!ref) continue;
       var s = st.seats[i];
@@ -359,7 +358,8 @@
       ref.dice.classList.toggle('busy', !!(d && d.state === 'rolling' && active));
       ref.hint.classList.toggle('show', canRoll && (!d || d.state === 'ready' || d.state === 'done'));
       /* keep the die on the last shown value */
-      ref.cube.style.transform = rot[lastPodValue[i]] || '';
+      setPips(ref.cube, lastPodValue[i] || 1);
+      ref.cube.classList.toggle('rolling', !!(d && d.state === 'rolling' && active));
     }
     updateTurnChip(st);
   }
@@ -395,12 +395,12 @@
   function updateDice(d) {
     var g = activeMatch; if (!g || !g.st) return;
     var st = g.st, turn = st.turn, ref = podEls[turn];
-    var rot = CUBE_ROT();
     if (ref) {
       if (d && (d.state === 'rolling' || d.state === 'done')) {
         lastPodValue[turn] = d.value;
-        ref.cube.style.transform = rot[d.value] || '';
+        setPips(ref.cube, d.value);
       }
+      ref.cube.classList.toggle('rolling', !!(d && d.state === 'rolling'));
       var canInteract = !!(st.phase === 'roll' && st.seats[turn].kind === 'human' && g.isLocalSeat(turn) &&
         d && (d.state === 'ready' || d.state === 'done'));
       ref.dice.disabled = !canInteract;

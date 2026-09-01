@@ -116,6 +116,53 @@ t('no legal moves when everything would overshoot', () => {
   eq(E.legalMoves(st, 6).length, 0);
 });
 
+console.log('\nBLOCKS (classic same-colour stacks)');
+t('cannot land on an opponent block', () => {
+  const st = mkGame([H(0), A(2, 1)]);
+  st.tokens[1] = [0, 0, -1, -1];          // yellow block on abs 26
+  st.tokens[0] = [20, 35, 40, 30];        // keep the other tokens off 26
+  const moves = E.legalMoves(st, 6);
+  eq(moves.some(mv => mv.token === 0), false, 'landing on block is illegal');
+  eq(moves.length, 3, 'other tokens still move');
+  eq(E.legalMoves(st, 5)[0].token, 0, 'short move before the block still works');
+});
+t('cannot pass through an opponent block', () => {
+  const st = mkGame([H(0), A(2, 1)]);
+  st.tokens[1] = [0, 0, -1, -1];          // yellow block on abs 26
+  st.tokens[0] = [24, 35, 40, 30];        // red path 24→30 crosses abs 26
+  const moves = E.legalMoves(st, 6);
+  eq(moves.some(mv => mv.token === 0), false, 'path crosses block');
+  eq(E.legalMoves(st, 1).some(mv => mv.token === 0), true);
+});
+t('release from yard is blocked when the start square is blocked', () => {
+  const st = mkGame([H(0), A(2, 1)]);
+  st.tokens[1] = [26, 26, -1, -1];        // yellow block on red start (abs 0)
+  eq(E.legalMoves(st, 6).length, 0);
+});
+t('own stack is never a block and can be passed by the same player', () => {
+  const st = mkGame([H(0), A(2, 1)]);
+  st.tokens[0] = [26, 26, 24, -1];        // red block on abs 26 + a follower at 24
+  const moves = E.legalMoves(st, 6);
+  assert(moves.some(m => m.token === 2 && m.to === 30), 'friendly token may pass own stack');
+});
+t('applyMove rejects a move that crosses a block', () => {
+  const st = mkGame([H(0), A(2, 1)]);
+  st.tokens[1] = [0, 0, -1, -1];
+  st.tokens[0] = [24, -1, -1, -1];
+  assert.throws(() => E.applyMove(st, { token: 0, from: 24, to: 30 }));
+});
+t('team mapping follows the cfg.seats order after the color sort', () => {
+  const st = mkGame([{ color: 1, kind: 'human', name: 'G' }, { color: 3, kind: 'human', name: 'B' },
+                    { color: 0, kind: 'human', name: 'R' }, { color: 2, kind: 'human', name: 'Y' }]);
+  st.team = null; // teams are passed in createGame; rebuild to test:
+  const withTeams = E.createGame({ mode: 'quick', seats: [
+    { color: 1, kind: 'human', name: 'G' }, { color: 3, kind: 'human', name: 'B' },
+    { color: 0, kind: 'human', name: 'R' }, { color: 2, kind: 'human', name: 'Y' }],
+    teams: [[0, 1], [2, 3]] });           // G+B vs R+Y (cfg.seats order)
+  eq(withTeams.seats.map(s => s.color), [0, 1, 2, 3]);
+  eq(withTeams.team, [1, 0, 1, 0]);       // R,Y on team 1; G,B on team 0
+});
+
 console.log('\nCAPTURES & SAFE CELLS');
 t('landing on opponent (yellow pos 42 → abs 16) captures', () => {
   const st = mkGame([H(0), A(2, 1)]);
@@ -145,15 +192,21 @@ t('release onto own start never captures (start is safe)', () => {
   const m = E.legalMoves(st, 6)[0];   // red releases to abs 0
   eq(m.captures.length, 0);
 });
-t('capturing a stack sends all tokens back', () => {
+t('single opponent token is captured, then sent back to yard', () => {
   const st = mkGame([H(0), A(2, 1)]);
   st.tokens[0] = [10, -1, -1, -1];
-  st.tokens[1] = [42, 42, -1, -1];
+  st.tokens[1] = [42, -1, -1, -1];
   const m = E.legalMoves(st, 6).find(mv => mv.token === 0);
-  eq(m.captures.length, 2);
+  eq(m.captures.length, 1);
   E.applyMove(st, m);
   eq(st.tokens[1][0], -1);
-  eq(st.tokens[1][1], -1);
+});
+t('a same-colour stack (block) is never capturable', () => {
+  const st = mkGame([H(0), A(2, 1)]);
+  st.tokens[0] = [10, -1, -1, -1];
+  st.tokens[1] = [42, 42, -1, -1];          // two yellow on abs 16 = block
+  const m = E.legalMoves(st, 6).find(mv => mv.token === 0);
+  eq(m, undefined, 'no move may land on a block');
 });
 t('own tokens coexist on a cell', () => {
   const st = mkGame([H(0), A(2, 1)]);

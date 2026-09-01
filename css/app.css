@@ -1130,21 +1130,24 @@ html[data-theme="light"] #offlineBadge { color: #8A6A12; background: rgba(251,19
 }
 .seat-pod .sp-hint.show { opacity: 0.95; }
 
-/* per-pod cube */
-.seat-pod .sp-cube { width: 34px; height: 34px; position: relative; transform-style: preserve-3d; transition: transform 0.42s cubic-bezier(0.2, 0.66, 0.24, 1.04); }
-.seat-pod .sp-cube .face {
-  position: absolute; width: 34px; height: 34px; border-radius: 9px;
+/* per-pod die (single pip face — the old 3D six-face cube multiplied DOM
+   nodes + composited transforms; a flat face reads identically at this size) */
+.seat-pod .sp-cube {
+  width: 34px; height: 34px; border-radius: 9px;
   background: var(--dice-face);
   box-shadow: inset 0 0 0 1px var(--dice-edge), inset 0 2px 2px rgba(255,255,255,0.65), inset 0 -4px 7px rgba(0,0,0,0.14);
-  display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); padding: 6px;
+  display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); padding: 6px; place-items: center;
+  transition: transform 0.2s var(--press);
 }
-.seat-pod .sp-cube .pip { border-radius: 50%; background: var(--dice-pip); box-shadow: inset 0 2px 2px rgba(0,0,0,0.55), inset 0 -1px 1px rgba(255,255,255,0.18); place-self: center; width: 6px; height: 6px; }
-.seat-pod .sp-cube .f1 { transform: rotateY(0deg) translateZ(17px); }
-.seat-pod .sp-cube .f6 { transform: rotateY(180deg) translateZ(17px); }
-.seat-pod .sp-cube .f3 { transform: rotateY(90deg) translateZ(17px); }
-.seat-pod .sp-cube .f4 { transform: rotateY(-90deg) translateZ(17px); }
-.seat-pod .sp-cube .f2 { transform: rotateX(90deg) translateZ(17px); }
-.seat-pod .sp-cube .f5 { transform: rotateX(-90deg) translateZ(17px); }
+.seat-pod .sp-cube.rolling { animation: diceSpin 0.42s var(--ease) infinite; }
+.seat-pod .sp-cube .pip {
+  border-radius: 50%; background: var(--dice-pip);
+  box-shadow: inset 0 2px 2px rgba(0,0,0,0.55), inset 0 -1px 1px rgba(255,255,255,0.18);
+  place-self: center; width: 6px; height: 6px; opacity: 0.16; transform: scale(0.85);
+  transition: opacity 0.12s, transform 0.12s;
+}
+.seat-pod .sp-cube .pip.on { opacity: 1; transform: scale(1); }
+@keyframes diceSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 /* ---- ACTIVE player: prominent, glowing, pulsing, interactive ---- */
 .seat-pod.active {
@@ -1246,13 +1249,6 @@ html[data-theme="light"] #offlineBadge { color: #8A6A12; background: rgba(251,19
   .seat-pod .sp-dice { height: 54px; }
   .seat-pod .sp-roll { width: 50px; height: 50px; }
   .seat-pod .sp-cube { width: 28px; height: 28px; }
-  .seat-pod .sp-cube .face { width: 28px; height: 28px; padding: 5px; }
-  .seat-pod .sp-cube .f1 { transform: rotateY(0deg) translateZ(14px); }
-  .seat-pod .sp-cube .f6 { transform: rotateY(180deg) translateZ(14px); }
-  .seat-pod .sp-cube .f3 { transform: rotateY(90deg) translateZ(14px); }
-  .seat-pod .sp-cube .f4 { transform: rotateY(-90deg) translateZ(14px); }
-  .seat-pod .sp-cube .f2 { transform: rotateX(90deg) translateZ(14px); }
-  .seat-pod .sp-cube .f5 { transform: rotateX(-90deg) translateZ(14px); }
   #hud { padding: calc(var(--sat) + 8px) 10px 4px; gap: 6px; }
   .pill { padding: 6px 8px; }
   .pill .avatar { width: 26px; height: 26px; font-size: 11px; }
@@ -1269,13 +1265,6 @@ html[data-theme="light"] #offlineBadge { color: #8A6A12; background: rgba(251,19
   .seat-pod .sp-dice { height: 38px; }
   .seat-pod .sp-roll { width: 44px; height: 44px; }
   .seat-pod .sp-cube { width: 26px; height: 26px; }
-  .seat-pod .sp-cube .face { width: 26px; height: 26px; padding: 4px; }
-  .seat-pod .sp-cube .f1 { transform: rotateY(0deg) translateZ(13px); }
-  .seat-pod .sp-cube .f6 { transform: rotateY(180deg) translateZ(13px); }
-  .seat-pod .sp-cube .f3 { transform: rotateY(90deg) translateZ(13px); }
-  .seat-pod .sp-cube .f4 { transform: rotateY(-90deg) translateZ(13px); }
-  .seat-pod .sp-cube .f2 { transform: rotateX(90deg) translateZ(13px); }
-  .seat-pod .sp-cube .f5 { transform: rotateX(-90deg) translateZ(13px); }
   #diceDock { min-height: 44px; margin: 4px 10px calc(var(--sab) + 6px); padding: 6px 8px; }
   #pauseBtn { width: 40px; height: 40px; }
   #boardWrap { padding: 4px 10px; }
@@ -1428,13 +1417,6 @@ html[data-theme="light"] #offlineBadge { color: #8A6A12; background: rgba(251,19
   .seat-pod .sp-dice { height: 44px; }
   .seat-pod .sp-roll { width: 44px; height: 44px; border-radius: 13px; }
   .seat-pod .sp-cube { width: 26px; height: 26px; }
-  .seat-pod .sp-cube .face { width: 26px; height: 26px; padding: 4px; }
-  .seat-pod .sp-cube .f1 { transform: rotateY(0deg) translateZ(13px); }
-  .seat-pod .sp-cube .f6 { transform: rotateY(180deg) translateZ(13px); }
-  .seat-pod .sp-cube .f3 { transform: rotateY(90deg) translateZ(13px); }
-  .seat-pod .sp-cube .f4 { transform: rotateY(-90deg) translateZ(13px); }
-  .seat-pod .sp-cube .f2 { transform: rotateX(90deg) translateZ(13px); }
-  .seat-pod .sp-cube .f5 { transform: rotateX(-90deg) translateZ(13px); }
 }
 /* short landscape: keep the four-side layout but tighten */
 @media (max-height: 560px) and (orientation: landscape) {

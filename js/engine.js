@@ -51,6 +51,37 @@
     return (START[colorIdx] + pos) % 52;
   }
 
+  /* Classic rule: two (or more) of the SAME opponent's tokens on one ring
+     cell form a block — left alone, it is not capturable and cannot be
+     landed on or passed through by an opponent. Own stacks are allowed. */
+  function isBlockedAt(st, seatIdx, abs) {
+    if (abs == null) return false;
+    for (var s = 0; s < st.seats.length; s++) {
+      if (s === seatIdx) continue;
+      var n = 0;
+      var toks = st.tokens[s];
+      for (var t = 0; t < 4; t++) {
+        var p = toks[t];
+        if (p >= 0 && p <= LAST_RING_POS && absCell(st.seats[s].color, p) === abs) n++;
+      }
+      if (n >= 2) return true;
+    }
+    return false;
+  }
+
+  /* Does `seatIdx`'s path from `fromPos` to `toPos` cross or land on an
+     opponent block? Release (from YARD → 0) checks only the target cell. */
+  function isMoveBlocked(st, seatIdx, fromPos, toPos) {
+    var color = st.seats[seatIdx].color;
+    var first = fromPos === YARD ? 0 : fromPos + 1;
+    if (first > toPos) return false;
+    for (var p = first; p <= toPos; p++) {
+      if (p > LAST_RING_POS) break;              // lane/home cells are never blocked
+      if (isBlockedAt(st, seatIdx, absCell(color, p))) return true;
+    }
+    return false;
+  }
+
   /* Grid cell [col,row] for a token position (pos 56 → null, use homePoint). */
   function posToCell(colorIdx, pos) {
     if (pos === YARD) return null;
@@ -79,7 +110,7 @@
     var seats = cfg.seats
       .map(function (s, i) {
         return {
-          i: i, color: s.color | 0, kind: s.kind === 'ai' ? 'ai' : 'human',
+          i: i, _src: i, color: s.color | 0, kind: s.kind === 'ai' ? 'ai' : 'human',
           name: String(s.name || ('Player ' + (i + 1))).slice(0, 18),
           ai: s.kind === 'ai' ? (s.ai | 0) : null
         };
@@ -94,7 +125,9 @@
     }
     /* normalize teams → { seatIndex: teamIdx }. `cfg.teams` is an array of
        seat-index lists, e.g. [[0,2],[1,3]] = P1+P3 vs P2+P4. Also accepts
-       {seatIdx: teamIdx}. */
+       {seatIdx: teamIdx}. Indices refer to the *seat list* (0..seats-1),
+       matched by each seat's original position in `cfg.seats` so the mapping
+       survives the color-sort below. */
     var TEAM = null;
     if (cfg.teams) {
       TEAM = {};
@@ -125,7 +158,7 @@
       sixChain: 0,              // consecutive sixes within the current turn
       winner: null,
       teamWin: null,            // 0 | 1 | null  (winner team in team mode)
-      team: (TEAM ? seats.map(function (s) { return TEAM[s.color] != null ? TEAM[s.color] : null; }) : null),
+      team: (TEAM ? seats.map(function (s) { return TEAM[s._src] != null ? TEAM[s._src] : null; }) : null),
       teamName: (cfg.teamNames ? cfg.teamNames.slice(0, 2) : ['Team A', 'Team B']),
       rankings: null,
       stats: seats.map(function () { return newStats(); }),
@@ -154,17 +187,17 @@
      Returns [{ token, from, to, captures:[{seat,token}], home, release }] */
   function legalMoves(st, roll) {
     if (st.phase === 'over' || st.winner !== null) return [];
-    var seatIdx = st.turn, color = st.seats[seatIdx].color;
+    var seatIdx = st.turn;
     var out = [];
     for (var t = 0; t < 4; t++) {
       var from = st.tokens[seatIdx][t];
       if (from === HOME) continue;
       if (from === YARD) {
-        if (roll === 6) out.push(makeMove(st, seatIdx, t, 0));
+        if (roll === 6 && !isMoveBlocked(st, seatIdx, YARD, 0)) out.push(makeMove(st, seatIdx, t, 0));
         continue;
       }
       var to = from + roll;
-      if (to <= HOME) out.push(makeMove(st, seatIdx, t, to));
+      if (to <= HOME && !isMoveBlocked(st, seatIdx, from, to)) out.push(makeMove(st, seatIdx, t, to));
     }
     return out;
   }
@@ -174,7 +207,7 @@
     var captures = [];
     if (to <= LAST_RING_POS) {
       var c = absCell(st.seats[seatIdx].color, to);
-      if (!SAFE[c]) {
+      if (!SAFE[c] && !isBlockedAt(st, seatIdx, c)) {
         for (var s = 0; s < st.seats.length; s++) {
           if (s === seatIdx) continue;
           for (var t = 0; t < 4; t++) {
@@ -203,10 +236,12 @@
     if (from === HOME) throw new Error('engine: token already home');
     if (from === YARD) {
       if (move.to !== 0) throw new Error('engine: release must land on start');
+      if (isMoveBlocked(st, seatIdx, from, move.to)) throw new Error('engine: release blocked');
       return true;
     }
     var d = move.to - from;
     if (d < 1 || d > 6) throw new Error('engine: impossible roll distance ' + d);
+    if (isMoveBlocked(st, seatIdx, from, move.to)) throw new Error('engine: move crosses a block');
     return true;
   }
 
@@ -476,6 +511,7 @@
     YARD: YARD, HOME: HOME, LAST_RING_POS: LAST_RING_POS, FIRST_LANE_POS: FIRST_LANE_POS,
     createGame: createGame,
     absCell: absCell, posToCell: posToCell, pathPositions: pathPositions,
+    isBlockedAt: isBlockedAt, isMoveBlocked: isMoveBlocked,
     legalMoves: legalMoves, applyMove: applyMove, registerRoll: registerRoll,
     endTurn: endTurn, beginsTurn: beginsTurn,
     progress: progress, rankPlayers: rankPlayers, isWin: isWin,

@@ -352,7 +352,13 @@
        legality check for the CURRENT position before anything mutates */
     if (this.st.phase !== 'move') return;
     var seatNow = this.st.turn;
-    if (!E.assertMoveLegal(this.st, seatNow, move)) return;
+    try {
+      if (!E.assertMoveLegal(this.st, seatNow, move)) return;
+    } catch (e) {
+      /* a stray/malicious move must never crash the match */
+      this.emit('toast', { text: 'Invalid move ignored', kind: 'info' });
+      return;
+    }
     this.view.halos = []; this.view.targets = [];
     this.st.phase = 'anim';
     this.arrivalPt = null;
