@@ -1,0 +1,22 @@
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' stun: turn:; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'
+
+/manifest.webmanifest
+  Content-Type: application/manifest+json
+
+/sw.js
+  Cache-Control: no-cache
+
+/index.html
+  Cache-Control: no-cache
+
+/js/*
+  Cache-Control: public, max-age=3600
+
+/css/*
+  Cache-Control: public, max-age=3600
+
+/icons/*
+  Cache-Control: public, max-age=604800

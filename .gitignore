@@ -1,0 +1,27 @@
+# dependencies (dev only — never deployed)
+node_modules/
+
+# build / tooling caches
+.next/
+dist/
+build/
+out/
+.turbo/
+.vite/
+.parcel-cache/
+.nuxt/
+.svelte-kit/
+coverage/
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.venv/
+
+# logs
+*.log
+npm-debug.log*
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db

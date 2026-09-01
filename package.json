@@ -1,0 +1,19 @@
+{
+  "name": "ludora",
+  "version": "1.4.0",
+  "description": "Ludora — a fast, premium Ludo board game. Pure static PWA, offline-first, serverless multiplayer.",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "build": "node dev/build-single.mjs",
+    "check": "node dev/check.mjs",
+    "test": "node dev/tests.cjs && node dev/persist-tests.cjs && node dev/qr-tests.cjs && node dev/audit-tests.cjs && node dev/mp-tests.cjs && node dev/integration.cjs",
+    "start": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "jsdom": "^24.1.0"
+  }
+}
