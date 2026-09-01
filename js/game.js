@@ -114,16 +114,17 @@
     this.wake();
     var wrap = this.canvas.parentElement;
     var lanes = this.podLanes();
-    /* small content padding on #boardWrap (left+right = 24, top+bottom = 10) */
-    var PAD_X = 24, PAD_Y = 10;
+    /* boardWrap padding: 16px horizontal, 8px vertical (safe-area handled by CSS) */
+    var PAD_X = 16, PAD_Y = 8;
     var availW, availH;
     if (wrap && wrap.clientWidth > 0 && wrap.clientHeight > 0) {
-      availW = wrap.clientWidth - PAD_X - lanes.x;
+      availW = wrap.clientWidth  - PAD_X - lanes.x;
       availH = wrap.clientHeight - PAD_Y - lanes.y;
     } else {
       /* layout not ready yet (early frame / hidden tab): sane fallback */
       var iw = global.innerWidth || 360, ih = global.innerHeight || 640;
-      availW = Math.min(iw - 40, ih - 220);
+      /* subtract approx gameBar height (58px) + safe areas */
+      availW = Math.min(iw - 20, ih - 80);
       availH = availW;
     }
     var S = Math.max(160, Math.floor(Math.min(availW, availH)));

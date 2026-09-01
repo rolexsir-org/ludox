@@ -62,14 +62,13 @@
   <section class="screen" id="scr-quick"></section>
   <section class="screen" id="scr-pass"></section>
   <section class="screen game" id="scr-game">
-    <header id="hud"></header>
     <div id="boardWrap">
       <div id="seatBar" role="group" aria-label="Players"></div>
       <canvas id="board" aria-label="Ludo board"></canvas>
-      <div id="offlineBadge" class="hidden" role="status"><svg class="ic"><use href="#i-cloud-off"/></svg><span>Offline — playing with local data</span></div>
+      <div id="offlineBadge" class="hidden" role="status"><svg class="ic"><use href="#i-cloud-off"/></svg><span>Offline</span></div>
       <button id="handoffBanner" class="hidden" aria-label="Pass device"></button>
     </div>
-    <div id="diceDock">
+    <div id="gameBar">
       <div id="netChip" class="hidden" role="status" aria-label="Connection status"><span class="dot"></span><span id="netChipText">Connected</span></div>
       <div id="turnChip"></div>
       <button id="pauseBtn" aria-label="Pause menu"><svg class="ic"><use href="#i-pause"/></svg></button>

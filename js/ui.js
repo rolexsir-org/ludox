@@ -226,8 +226,7 @@
   function seatPodTemplate() {
     return '<div class="sp-top"><span class="sp-avatar"></span>' +
       '<div class="sp-id"><div class="sp-name"></div><div class="sp-sub"></div></div>' +
-      '<span class="sp-team"></span>' +
-      '<span class="sp-status"><span class="dot"></span><span class="sp-status-text"></span></span></div>' +
+      '<span class="sp-team" style="display:none"></span></div>' +
       '<div class="sp-homes"></div>' +
       '<div class="sp-dice"><button class="sp-roll" aria-label="Roll the dice"><div class="sp-cube">' + PIP_GRID + '</div></button>' +
       '<span class="sp-hint">Roll</span></div>';
@@ -255,9 +254,9 @@
         name: pod.querySelector('.sp-name'),
         sub: pod.querySelector('.sp-sub'),
         team: pod.querySelector('.sp-team'),
-        status: pod.querySelector('.sp-status-text'),
-        statusRoot: pod.querySelector('.sp-status'),
-        dot: pod.querySelector('.sp-status .dot'),
+        status: pod.querySelector('.sp-sub'),   /* reuse sub for status text */
+        statusRoot: null,
+        dot: null,
         homes: pod.querySelector('.sp-homes'),
         dice: pod.querySelector('.sp-roll'),
         cube: pod.querySelector('.sp-cube'),
@@ -284,7 +283,9 @@
     if (active && s.kind === 'ai') return { cls: 'status-ai', text: 'Thinking' };
     if (active && s.kind === 'human') {
       if (online && !isLocal) return { cls: 'status-waiting', text: g.seatIsRemote(i) ? 'Waiting' : 'Rolling' };
-      return { cls: 'status-turn', text: 'Your turn' };
+      var phase = st.phase;
+      var txt = phase === 'move' ? 'Pick a pawn' : (phase === 'anim' ? 'Moving…' : 'Your turn');
+      return { cls: 'status-turn', text: txt };
     }
     if (s.kind === 'ai') return { cls: 'status-ai', text: 'AI' };
     if (online && g.seatIsRemote(i) && g.netHost && !g.netHost.isSeatLive(i)) return { cls: 'status-offline', text: 'Offline' };
@@ -342,9 +343,8 @@
       ref.root.classList.toggle('inactive', !active);
       ref.root.classList.remove('status-offline', 'status-waiting', 'status-ai', 'status-turn');
       ref.root.classList.add(status.cls || 'status-waiting');
-      ref.status.textContent = status.text;
-      ref.dot.classList.remove('on', 'off', 'warn');
-      ref.dot.classList.add('dot');
+      /* show status text in the sub label */
+      ref.sub.textContent = active ? status.text : (s.kind === 'ai' ? 'AI' : 'Waiting');
       /* homes */
       var homes = 0;
       for (var t = 0; t < 4; t++) if (st.tokens[i][t] === E.HOME) homes++;
@@ -367,29 +367,16 @@
   function updateTurnChip(st) {
     var chip = $('turnChip'); if (!chip || !st) return;
     var seat = st.turn, s = st.seats[seat];
-    chip.innerHTML = avatarHTML(s.avatar != null ? s.avatar : seat, 30) +
+    var phaseText = s.kind === 'ai' ? 'Thinking…' : (st.phase === 'move' ? 'Pick a pawn' : 'Tap to roll');
+    chip.innerHTML = avatarHTML(s.avatar != null ? s.avatar : seat, 28) +
       '<div class="grow"><div class="t">' + esc(s.name || ('Player ' + (seat + 1))) + '</div>' +
-      '<div class="s">' + (s.kind === 'ai' ? 'Thinking…' : (st.phase === 'move' ? 'Choose a move' : 'Roll to begin')) + '</div></div>';
+      '<div class="s">' + phaseText + '</div></div>';
+    chip.style.color = colorCss(s.color);
   }
 
   function updateHud(d) {
-    var g = activeMatch; if (!g) return;
-    var hud = $('hud'); if (!hud) return;
-    var st = g.st, img = '';
-    for (var i = 0; i < st.seats.length; i++) {
-      var s = st.seats[i];
-      var homes = 0;
-      for (var t = 0; t < 4; t++) if (st.tokens[i][t] === E.HOME) homes++;
-      var active = st.turn === i;
-      img += '<div class="pill' + (active ? ' active' : '') + '" style="color:' + colorCss(s.color) + '" role="button" aria-label="' + esc(s.name) + '">' +
-        avatarHTML(s.avatar != null ? s.avatar : i, 30) +
-        '<div class="meta"><div class="name">' + esc(s.name) + '</div>' +
-        '<div class="sub"><span class="caps"><svg class="ic"><use href="#i-crown"/></svg>' + st.stats[i].homes + '</span>' +
-        '<span class="homes">' + [0,1,2,3].map(function (t2) { return '<i class="' + (t2 < homes ? 'on' : '') + '"></i>'; }).join('') + '</span>' +
-        (active && (d && d.thinking) ? '<span class="thinking"></span>' : '') + '</div></div>' +
-        '<span class="bar" style="background:currentColor"></span></div>';
-    }
-    hud.innerHTML = img;
+    /* Top-bar HUD removed. Sync pods + turn chip. */
+    var g = activeMatch; if (!g || !g.st) return;
     if (g.st) syncSeatPods(g.st, d);
   }
 
@@ -907,14 +894,17 @@
       (prof.history.length ? historyHTML(prof.history) : '<div class="mp-note">No matches yet.</div>');
     $('prBack').onclick = function () { back(); };
   }
-  function statCell(v, k) { return '<div class="stat-cell"><div class="v">' + v + '</div><div class="k">' + k + '</div></div>'; }
+  function statCell(v, k) { return '<div class="stat-cell"><div class="n">' + v + '</div><div class="l">' + k + '</div></div>'; }
   function historyHTML(h) {
-    return '<div class="list">' + h.slice(0, 8).map(function (e) {
+    var colors = { w: '#22C55E', l: '#EF4444', p: '#8B8FA3' };
+    return '<div style="display:flex;flex-direction:column;gap:6px">' + h.slice(0, 8).map(function (e) {
       var res = e.result === 'w' ? 'w' : (e.result === 'l' ? 'l' : 'p');
       var label = e.result === 'w' ? 'Win' : (e.result === 'l' ? 'Loss' : 'Play');
-      return '<div class="hist-row"><span class="res ' + res + '">' + label + '</span>' +
-        '<div><div class="t">' + esc(e.mode === 'daily' ? 'Daily Challenge' : (e.mode === 'online' ? 'Online Match' : (e.mode === 'pass' ? 'Pass & Play' : 'Quick Match'))) + '</div>' +
-        '<div class="s">' + esc(e.seatNames[0] || '') + '</div></div></div>';
+      var modeText = e.mode === 'daily' ? 'Daily' : (e.mode === 'online' ? 'Online' : (e.mode === 'pass' ? 'Pass & Play' : 'Quick Match'));
+      return '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:12px;background:var(--glass-bg);border:1px solid var(--glass-border)">' +
+        '<span style="font-size:11px;font-weight:750;letter-spacing:.06em;color:' + colors[res] + '">' + label + '</span>' +
+        '<div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:640">' + esc(modeText) + '</div>' +
+        '<div style="font-size:11px;color:var(--text-2)">' + esc(e.seatNames[0] || '') + '</div></div></div>';
     }).join('') + '</div>';
   }
 
@@ -931,10 +921,11 @@
       themes.map(function (t) { return '<button data-v="' + t.v + '" class="' + (s.theme === t.v ? 'on' : '') + '">' + t.n + '</button>'; }).join('') + '</div>' +
       '<div class="label">Layout</div><div class="seg" id="setLayout" style="--n:4">' +
       layouts.map(function (l) { return '<button data-v="' + l.v + '" class="' + ((s.layout || 'auto') === l.v ? 'on' : '') + '">' + l.n + '</button>'; }).join('') + '</div>' +
-      '<div class="label">Sound</div><div class="list"><button class="list-row" id="optSound"><span class="t grow">Sound effects</span>' +
-      '<span class="toggle' + (s.sound ? ' on' : '') + '" id="togSound"></span></button>' +
-      '<div class="label">Haptics</div><button class="list-row" id="optHaptics"><span class="t grow">Vibration</span>' +
-      '<span class="toggle' + (s.haptics ? ' on' : '') + '" id="togHaptics"></span></button></div>' +
+      '<div class="label">Sound &amp; Haptics</div>' +
+      '<div class="set-row"><div><div class="t">Sound effects</div><div class="s">Dice, moves, captures</div></div>' +
+      '<button class="tog' + (s.sound ? ' on' : '') + '" id="togSound" aria-label="Toggle sound"></button></div>' +
+      '<div class="set-row"><div><div class="t">Vibration</div><div class="s">Haptic feedback on mobile</div></div>' +
+      '<button class="tog' + (s.haptics ? ' on' : '') + '" id="togHaptics" aria-label="Toggle haptics"></button></div>' +
       '<div style="flex:1"></div>';
     $('sBack').onclick = function () { back(); };
     $$('#setTheme button', scr).forEach(function (b) {
