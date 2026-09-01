@@ -51,18 +51,35 @@
     return (START[colorIdx] + pos) % 52;
   }
 
-  /* Classic rule: two (or more) of the SAME opponent's tokens on one ring
-     cell form a block — left alone, it is not capturable and cannot be
-     landed on or passed through by an opponent. Own stacks are allowed. */
+  /* Are two seats on the same team (team mode)? Solo seats count as their
+     own team, and a seat is always friendly to itself. */
+  function isFriendly(st, a, b) {
+    if (a === b) return true;
+    if (!st.team || st.team[a] == null || st.team[b] == null) return false;
+    return st.team[a] === st.team[b];
+  }
+
+  /* Classic rule: two (or more) tokens from the same OPPONENT group on one
+     ring cell form a block — not capturable and cannot be landed on or
+     passed through. In team mode an opponent group is a whole team, so
+     partners can build blocks together; teammates never block each other.
+     Solo mode treats each seat (colour) as its own group. */
   function isBlockedAt(st, seatIdx, abs) {
     if (abs == null) return false;
+    var groups = {};
     for (var s = 0; s < st.seats.length; s++) {
-      if (s === seatIdx) continue;
-      var n = 0;
-      var toks = st.tokens[s];
-      for (var t = 0; t < 4; t++) {
-        var p = toks[t];
-        if (p >= 0 && p <= LAST_RING_POS && absCell(st.seats[s].color, p) === abs) n++;
+      if (isFriendly(st, seatIdx, s)) continue;
+      var key = (st.team && st.team[s] != null) ? ('t' + st.team[s]) : ('s' + s);
+      (groups[key] = groups[key] || []).push(s);
+    }
+    for (var g in groups) {
+      var seats = groups[g], n = 0;
+      for (var si = 0; si < seats.length; si++) {
+        var toks = st.tokens[seats[si]];
+        for (var t = 0; t < 4; t++) {
+          var p = toks[t];
+          if (p >= 0 && p <= LAST_RING_POS && absCell(st.seats[seats[si]].color, p) === abs) n++;
+        }
       }
       if (n >= 2) return true;
     }
@@ -209,7 +226,7 @@
       var c = absCell(st.seats[seatIdx].color, to);
       if (!SAFE[c] && !isBlockedAt(st, seatIdx, c)) {
         for (var s = 0; s < st.seats.length; s++) {
-          if (s === seatIdx) continue;
+          if (isFriendly(st, seatIdx, s)) continue;
           for (var t = 0; t < 4; t++) {
             if (st.tokens[s][t] >= 0 && st.tokens[s][t] <= LAST_RING_POS &&
                 tokenAbs(st, s, t) === c) {
@@ -347,10 +364,13 @@
     });
     rows.sort(function (a, b) {
       if (teamWin != null) {
-        var at = a.team, bt = b.team;
-        if (at === teamWin && bt !== teamWin) return -1;
-        if (bt === teamWin && at !== teamWin) return 1;
-        if (at !== null && bt !== null && at !== bt) return (b.progress - a.progress) || (a.seat - b.seat);
+        /* the seat that actually triggered the team win ranks first, then
+           the rest of the winning team, then the losing team. */
+        if (a.seat === winnerIdx) return -1;
+        if (b.seat === winnerIdx) return 1;
+        var aw = a.team === teamWin, bw = b.team === teamWin;
+        if (aw !== bw) return aw ? -1 : 1;
+        return (b.progress - a.progress) || (b.captures - a.captures) || (a.seat - b.seat);
       } else {
         if (a.seat === winnerIdx) return -1;
         if (b.seat === winnerIdx) return 1;

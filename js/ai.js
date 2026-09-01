@@ -22,6 +22,8 @@
     var p = 0;
     for (var s = 0; s < st.seats.length; s++) {
       if (s === seatIdx) continue;
+      /* teammates never attack you */
+      if (st.team && st.team[seatIdx] != null && st.team[s] === st.team[seatIdx]) continue;
       for (var t = 0; t < 4; t++) {
         var pos = st.tokens[s][t];
         if (pos < 0 || pos > E.LAST_RING_POS) continue; // yard / lane / home can't hit

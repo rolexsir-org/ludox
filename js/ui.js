@@ -237,6 +237,7 @@
     if (podEls.length === st.seats.length && bar.children.length === st.seats.length) return true;
     bar.innerHTML = '';
     podEls = [];
+    lastPodValue = [];           // fresh match: no stale die value carries over
     var laneMap = (Board && Board.SIDE_OF) || ['bottom', 'left', 'top', 'right'];
     for (var i = 0; i < st.seats.length; i++) {
       var pod = document.createElement('div');
@@ -264,7 +265,7 @@
       };
       ref.dice.addEventListener('click', (function (idx) { return function () { rollForSeat(idx); }; })(i));
       podEls.push(ref);
-      lastPodValue[i] = 6;
+      lastPodValue[i] = 1;       // neutral until the first roll of the match
     }
     return true;
   }

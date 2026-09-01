@@ -162,6 +162,38 @@ t('team mapping follows the cfg.seats order after the color sort', () => {
   eq(withTeams.seats.map(s => s.color), [0, 1, 2, 3]);
   eq(withTeams.team, [1, 0, 1, 0]);       // R,Y on team 1; G,B on team 0
 });
+t('team mode: teammates never capture or block each other', () => {
+  const st = E.createGame({ mode: 'pass', seats: [
+    { color: 0, kind: 'human', name: 'R' }, { color: 1, kind: 'human', name: 'G' },
+    { color: 2, kind: 'human', name: 'Y' }, { color: 3, kind: 'human', name: 'B' }],
+    teams: [[0, 2], [1, 3]] });          // R + Y vs G + B
+  st.tokens[0] = [10, -1, -1, -1];        // red
+  st.tokens[2] = [42, 42, -1, -1];        // yellow teammate (two) at abs 16
+  const m = E.legalMoves(st, 6).find(x => x.token === 0);
+  assert(m, 'red should be able to move onto its teammate stack');
+  eq(m.captures, [], 'teammates are not capturable');
+  st.turn = 0;
+  st.tokens[1] = [13, -1, -1, -1];        // green (opponent) pos 13 -> abs 26
+  st.tokens[3] = [39, -1, -1, -1];        // blue teammate pos 39 -> abs 26 (same square)
+  st.tokens[0] = [24, -1, -1, -1];        // red at 24, path 24->30 crosses abs 26
+  const canCross = E.legalMoves(st, 6).some(x => x.token === 0);
+  eq(canCross, false, 'opponent-team partner stack blocks red');
+});
+t('team mode: the seat that clinches the win ranks first', () => {
+  const st = E.createGame({ mode: 'pass', seats: [
+    { color: 0, kind: 'human', name: 'R' }, { color: 1, kind: 'human', name: 'G' },
+    { color: 2, kind: 'human', name: 'Y' }, { color: 3, kind: 'human', name: 'B' }],
+    teams: [[0, 2], [1, 3]], rules: { teamHomeTarget: 8 } });
+  st.tokens[0] = [E.HOME, E.HOME, E.HOME, 55];   // red about to finish
+  st.tokens[2] = [E.HOME, E.HOME, E.HOME, E.HOME]; // yellow done
+  const m = E.legalMoves(st, 1).find(x => x.token === 3);
+  assert(m && m.home, 'red has the winning home move');
+  const ev = E.applyMove(st, m);
+  eq(ev.win, true);
+  assert(st.teamWin === 0, 'team 0 wins');
+  eq(st.rankings[0], 0, 'winning seat is first in rankings');
+  E.assertInvariants(st);
+});
 
 console.log('\nCAPTURES & SAFE CELLS');
 t('landing on opponent (yellow pos 42 → abs 16) captures', () => {
