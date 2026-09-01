@@ -55,7 +55,18 @@
     'streak-3':     { name: 'On a Roll',       desc: 'Win 3 matches in a row.' },
     'streak-7':     { name: 'Unstoppable',     desc: 'Win 7 matches in a row.' },
     'daily-3':      { name: 'Habit Builder',   desc: 'Complete 3 daily challenges.' },
-    'social':       { name: 'Connected',       desc: 'Play an online match.' }
+    'social':       { name: 'Connected',       desc: 'Play an online match.' },
+    /* ---- in-game, event-driven achievements (awarded from live state) ---- */
+    'first-six':     { name: 'First Six',       desc: 'Roll your first six.' },
+    'double-six':    { name: 'Double Six',      desc: 'Roll two sixes in a row.' },
+    'first-capture': { name: 'First Capture',   desc: 'Capture your first opposing token.' },
+    'multi-capture': { name: 'Multi-Capture',   desc: 'Capture two or more tokens in one move.' },
+    'token-home':    { name: 'Token Home',      desc: 'Bring your first token home.' },
+    'all-home':      { name: 'All Home',        desc: 'Get all four tokens home.' },
+    'comeback':      { name: 'Comeback',        desc: 'Win after being captured three times.' },
+    'perfect':       { name: 'Perfect Game',    desc: 'Win without ever being captured.' },
+    'champion':      { name: 'Champion',        desc: 'Win a match outright.' },
+    'team-victory':  { name: 'Team Victory',    desc: 'Win a Team-Up match with your partner.' }
   };
 
   function isUnlocked(cosmetic, prof) {
@@ -219,7 +230,10 @@
       newAch.push({ id: id });
     }
     var youWon = res.youSeat != null && res.youSeat === res.winnerSeat;
-    if (youWon) grant('first-win');
+    /* team mode: winning means your team captured the objective */
+    var youWonTeam = youWon || (res.teamWin != null && res.youTeam === res.teamWin);
+    if (youWon || youWonTeam) grant('first-win');
+    if (youWonTeam && res.teamWin != null) grant('team-victory');
     if (youWon && res.hardWin) grant('mastermind');
     if (prof.stats.captures >= 10) grant('capturer');
     if (prof.stats.streak >= 3) grant('streak-3');
@@ -233,6 +247,42 @@
     COSMETICS.boards.concat(COSMETICS.dice, COSMETICS.tokens).forEach(function (c) {
       if (c.level <= lvl && owned.indexOf(c.id) < 0) owned.push(c.id);
     });
+  }
+
+  /* ---------- in-game event achievements ----------
+     The controller calls this with the LIVE state it just produced so that
+     achievements are only ever granted by real gameplay events (a rolled 6,
+     a capture, a token reaching home, a win ...). `ev.seat` is the seat that
+     acted; the local profile is credited for achievements only when the acting
+     seat is the human's seat (`ev.youSeat`). Returns newly unlocked ids + xp. */
+  function applyGameEvent(prof, ev) {
+    if (!prof || !ev) return { newAchievements: [], xpGained: 0 };
+    var now = Date.now();
+    var newAch = [];
+    function grant(id) {
+      if (prof.achievements[id]) return;
+      prof.achievements[id] = now;
+      newAch.push({ id: id });
+    }
+    var human = ev.youSeat != null && ev.seat === ev.youSeat;
+    var xp = 0;
+    if (human) {
+      switch (ev.kind) {
+        case 'six':         grant('first-six'); xp += 5; break;
+        case 'doubleSix':   grant('double-six'); xp += 12; break;
+        case 'capture':     grant('first-capture'); xp += 10; break;
+        case 'multiCapture':grant('multi-capture'); xp += 20; break;
+        case 'home':        grant('token-home'); xp += 6; break;
+        case 'allHome':     grant('all-home'); xp += 30; break;
+        case 'champion':    grant('champion'); break;
+        case 'comeback':    grant('comeback'); xp += 40; break;
+        case 'perfect':     grant('perfect'); xp += 40; break;
+        case 'teamVictory': grant('team-victory'); xp += 50; break;
+      }
+      if (newAch.length) prof.xp += xp;
+      syncCosmetics(prof);
+    }
+    return { newAchievements: newAch, xpGained: human ? xp : 0 };
   }
 
   /* ---------- match result application ---------- */
@@ -365,6 +415,7 @@
     loadProfile: loadProfile,
     saveProfile: saveProfile,
     applyMatchResult: applyMatchResult,
+    applyGameEvent: applyGameEvent,
     levelFromXp: levelFromXp,
     xpForNext: xpForNext,
     isUnlocked: isUnlocked,

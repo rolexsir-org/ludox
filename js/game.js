@@ -56,10 +56,11 @@
       this.st = savedState;
       this.migrateResume();
     } else {
-      this.st = E.createGame({ mode: cfg.mode, seats: cfg.seats, rules: cfg.rules });
+      this.st = E.createGame({ mode: cfg.mode, seats: cfg.seats, rules: cfg.rules, teams: cfg.teams, teamNames: cfg.teamNames });
     }
     var settings = (global.LudoraProfile && LudoraProfile.loadProfile().settings) || {};
     this.speed = settings.animSpeed === 'fast' ? 1 : 1.35;
+    this.youSeat = this.findYouSeat();
     this.lastBegun = -1;
     this.arrivalPt = null;
     this._loopBound = this.loop.bind(this);
@@ -94,20 +95,38 @@
   };
 
   /* ---------- layout ---------- */
+  /* reserve a lane for each occupied board side so the four player pods can
+     hug the board without covering it. */
+  Match.prototype.occupiedSides = function () {
+    var sides = { top: false, bottom: false, left: false, right: false };
+    if (this.cfg && this.cfg.seats) {
+      var laneMap = Board.SIDE_OF || ['bottom', 'left', 'top', 'right'];
+      this.cfg.seats.forEach(function (s) { sides[laneMap[s.color] || 'bottom'] = true; });
+    }
+    return sides;
+  };
+  Match.prototype.podLanes = function () {
+    var L = (Board && Board.podLanes) ? Board.podLanes() : { x: 104, y: 120 };
+    var s = this.occupiedSides();
+    return { x: (s.left ? L.x : 0) + (s.right ? L.x : 0), y: (s.top ? L.y : 0) + (s.bottom ? L.y : 0) };
+  };
   Match.prototype.resize = function (force) {
     this.wake();
     var wrap = this.canvas.parentElement;
+    var lanes = this.podLanes();
+    /* small content padding on #boardWrap (left+right = 24, top+bottom = 10) */
+    var PAD_X = 24, PAD_Y = 10;
     var availW, availH;
     if (wrap && wrap.clientWidth > 0 && wrap.clientHeight > 0) {
-      availW = wrap.clientWidth - 18;
-      availH = wrap.clientHeight - 10;
+      availW = wrap.clientWidth - PAD_X - lanes.x;
+      availH = wrap.clientHeight - PAD_Y - lanes.y;
     } else {
       /* layout not ready yet (early frame / hidden tab): sane fallback */
       var iw = global.innerWidth || 360, ih = global.innerHeight || 640;
       availW = Math.min(iw - 40, ih - 220);
       availH = availW;
     }
-    var S = Math.max(200, Math.floor(Math.min(availW, availH)));
+    var S = Math.max(160, Math.floor(Math.min(availW, availH)));
     if (!force && S === this.cssS && this.m) return;   // nothing to do
     this.cssS = S;
     this.dpr = Math.min(global.devicePixelRatio || 1, 2.5);
@@ -238,6 +257,13 @@
     }
   };
 
+  /* Emit a real gameplay achievement event to the UI. `kind` maps to a
+     profile achievement. We only ever emit from actual engine transitions. */
+  Match.prototype.gameEvent = function (seat, kind, extra) {
+    if (this.destroyed || seat == null) return;
+    this.emit('achievement', { seat: seat, kind: kind, youSeat: this.youSeat, extra: extra || {} });
+  };
+
   Match.prototype.doRoll = function () {
     if (this.destroyed || this.diceBusy || this.st.phase !== 'roll') return;
     this.wake();
@@ -257,6 +283,12 @@
     var r = E.registerRoll(this.st, value);
     this.emit('dice', { state: 'rolling', value: value });
     Audio2.play('roll'); Audio2.haptic('roll');
+    if (value === 6) {
+      /* six achievements come only from a real 6 roll */
+      var seatNow = this.st.turn;
+      this.gameEvent(seatNow, 'six', { roll: value });
+      if (this.st.sixChain >= 2) this.gameEvent(seatNow, 'doubleSix', { chain: this.st.sixChain });
+    }
     var self = this;
     this.after(430, function () {
       if (self.destroyed || self.st.phase === 'over') return;   // match ended mid-roll
@@ -360,6 +392,15 @@
     var maxAi = 0;
     st.seats.forEach(function (s) { if (s.kind === 'ai') maxAi = Math.max(maxAi, s.ai); });
     var durationS = Math.max(1, Math.round((Date.now() - st.startedAt) / 1000));
+    /* in-game win achievements come from a real engine win */
+    var wn = st.winner;
+    if (wn != null) {
+      this.gameEvent(wn, 'champion', {});
+      var wStats = st.stats[wn];
+      if (wStats && wStats.timesCaptured >= 3) this.gameEvent(wn, 'comeback', { timesCaptured: wStats.timesCaptured });
+      if (wStats && wStats.timesCaptured === 0) this.gameEvent(wn, 'perfect', {});
+      if (st.teamWin != null) this.gameEvent(wn, 'teamVictory', { team: st.teamWin });
+    }
     this.emit('end', {
       winner: st.winner,
       rankings: st.rankings,
@@ -367,6 +408,9 @@
       stats: st.stats,
       tokens: st.tokens,
       mode: cfg.mode,
+      teamWin: st.teamWin != null ? st.teamWin : null,
+      team: st.team ? st.team : null,
+      teamName: st.teamName ? st.teamName : null,
       dailyKey: cfg.dailyKey || null,
       youSeat: youSeat,
       maxAiLevel: maxAi,
@@ -412,12 +456,18 @@
         });
         Audio2.play('capture'); Audio2.haptic('capture');
         self.announce(self.st.seats[seat].name + ' captured ' + self.st.seats[events.captures[0].seat].name);
+        self.gameEvent(seat, 'capture', { n: events.captures.length });
+        if (events.captures.length >= 2) self.gameEvent(seat, 'multiCapture', { n: events.captures.length });
         wait = 340;
       }
       if (events.home) {
         var ctr = Board.homeSlots(self.m, self.st.seats[seat].color)[0];
         self.view.particles.push({ kind: 'ripple', x: ctr.x, y: ctr.y, r0: self.m.cell * 0.5, t0: performance.now(), dur: 600 });
         Audio2.play('home'); Audio2.haptic('home');
+        self.announce(self.st.seats[seat].name + ' brought a token home');
+        self.gameEvent(seat, 'home', {});
+        var allHome = self.st.tokens[seat].every(function (p) { return p === E.HOME; });
+        if (allHome) self.gameEvent(seat, 'allHome', {});
         wait = Math.max(wait, 300);
       }
       self.after(wait, function () {
@@ -432,7 +482,19 @@
   Match.prototype.finishWin = function () {
     var self = this;
     Audio2.play('win'); Audio2.haptic('win');
-    this.after(700, function () { self.finish(); });
+    var wn = this.st.winner;
+    if (wn != null && this.m) {
+      var ctr = Board.homeSlots(this.m, this.st.seats[wn].color)[0];
+      this.view.particles.push({
+        kind: 'ripple', x: ctr.x, y: ctr.y, r0: this.m.cell * 0.6, t0: performance.now(), dur: 900
+      });
+      this.view.particles.push({
+        kind: 'burst', x: ctr.x, y: ctr.y, t0: performance.now(), dur: 700,
+        color: this.st.seats[wn].color
+      });
+    }
+    this.emit('dice', { state: 'idle' });
+    this.after(760, function () { self.finish(); });
   };
 
   /* token position helpers */
@@ -481,6 +543,12 @@
 
     if (deciding && st.phase !== 'anim') {
       Board.drawYardGlow(ctx, this.m, st.seats[st.turn].color, t);
+    }
+
+    /* victory shimmer: light up the winner's yard on the board once the
+       match is over (celebration before the results screen takes over). */
+    if (st.phase === 'over' && st.winner != null && st.seats[st.winner]) {
+      Board.drawYardGlow(ctx, this.m, st.seats[st.winner].color, t * 1.7);
     }
 
     /* destination targets + halos for human choice */

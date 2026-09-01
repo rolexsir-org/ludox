@@ -429,51 +429,6 @@ input, textarea { font: inherit; user-select: text; -webkit-user-select: text; }
 #turnChip .s { font-size: 11px; color: var(--text-3); margin-top: 2px; font-weight: 500; }
 #turnChip.think .t { color: var(--text-2); }
 
-.dice-slot { position: relative; width: 78px; height: 78px; display: grid; place-items: center; }
-#diceGlow { position: absolute; inset: 6px; border-radius: 22px; opacity: 0; transition: opacity 0.3s; }
-#diceGlow.show { opacity: 0.55; }
-#diceBtn {
-  width: 64px; height: 64px; border-radius: 50%;
-  background: var(--bg-cell);
-  box-shadow: inset 0 0 0 1px var(--hairline-2), var(--shadow-1);
-  display: grid; place-items: center;
-  perspective: 420px;
-  transition: transform 0.14s var(--press), box-shadow 0.2s, background 0.25s, opacity 0.2s;
-}
-#diceBtn:active { transform: scale(0.93); }
-/* the gradient + glow are set inline per active player by the UI */
-#diceBtn.busy { pointer-events: none; opacity: 0.92; }
-#diceBtn.dim { opacity: 0.38; pointer-events: none; }
-#rollHint {
-  position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%);
-  font-size: 9px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase;
-  color: var(--text-3); opacity: 0; transition: opacity 0.22s; white-space: nowrap;
-}
-#rollHint.show { opacity: 1; }
-
-/* the die: bone-white, weighted, properly shaded */
-#cube { width: 42px; height: 42px; position: relative; transform-style: preserve-3d; transition: transform 0.42s cubic-bezier(0.2, 0.66, 0.24, 1.04); }
-#cube .face {
-  position: absolute; width: 42px; height: 42px; border-radius: 11px;
-  background: var(--dice-face);
-  box-shadow: inset 0 0 0 1px var(--dice-edge),
-    inset 0 2px 2px rgba(255, 255, 255, 0.65),
-    inset 0 -4px 7px rgba(0, 0, 0, 0.14);
-  display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr);
-  padding: 7px;
-}
-#cube .pip {
-  border-radius: 50%; background: var(--dice-pip);
-  box-shadow: inset 0 2px 2px rgba(0, 0, 0, 0.55), inset 0 -1px 1px rgba(255, 255, 255, 0.18);
-  place-self: center; width: 7px; height: 7px;
-}
-.f1 { transform: rotateY(0deg) translateZ(21px); }
-.f6 { transform: rotateY(180deg) translateZ(21px); }
-.f3 { transform: rotateY(90deg) translateZ(21px); }
-.f4 { transform: rotateY(-90deg) translateZ(21px); }
-.f2 { transform: rotateX(90deg) translateZ(21px); }
-.f5 { transform: rotateX(-90deg) translateZ(21px); }
-
 #pauseBtn {
   width: 46px; height: 46px; border-radius: 15px; flex: none;
   background: var(--bg-card);
@@ -844,8 +799,6 @@ html[data-view="tablet"] .home-build, html[data-view="desktop"] .home-build { te
   #hud { min-height: 44px; padding-top: calc(var(--sat) + 4px); }
   .pill { padding: 4px 7px; }
   .pill .sub { display: none; }
-  .dice-slot { width: 66px; height: 66px; }
-  #diceBtn { width: 56px; height: 56px; border-radius: 16px; }
   #diceDock { min-height: 74px; margin-bottom: calc(var(--sab) + 4px); }
   #turnChip .avatar { width: 28px; height: 28px; }
 }
@@ -879,8 +832,6 @@ html[data-view="tablet"] .home-build, html[data-view="desktop"] .home-build { te
   .pill { padding: 6px 7px; }
   .pill .avatar { width: 25px; height: 25px; font-size: 11px; }
   .pill .homes i { width: 6px; height: 6px; }
-  .dice-slot { width: 70px; height: 70px; }
-  #diceBtn { width: 60px; height: 60px; border-radius: 17px; }
   #diceDock { min-height: 84px; padding: var(--sp-2) var(--sp-3); }
   #pauseBtn { width: 42px; height: 42px; }
   .room-id-chip { font-size: 14px; padding: 8px 13px; }
@@ -977,3 +928,517 @@ html[data-theme="light"] .toast.good .t-tile { background: rgba(34,197,94,.12); 
   padding: 4px 0; border-radius: 7px; background: var(--bg-cell);
 }
 .mini-swatch { width: 34px; height: 34px; border-radius: 11px; }
+
+/* =========================================================================
+   GLASSMORPHISM — premium iOS-grade surfaces
+   Frosted glass panels, translucent surfaces, background blur, soft
+   borders/shadows, layered depth. Overrides the flat "tabletop" surfaces
+   on every screen while keeping the board as the single focal point.
+   ========================================================================= */
+:root {
+  --glass-bg: rgba(255, 255, 255, 0.06);
+  --glass-bg-2: rgba(255, 255, 255, 0.10);
+  --glass-bg-3: rgba(255, 255, 255, 0.16);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-border-2: rgba(255, 255, 255, 0.24);
+  --glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  --glass-blur: blur(18px) saturate(165%);
+  --glass-raise: rgba(255, 255, 255, 0.08);
+  --glass-raise-2: rgba(255, 255, 255, 0.13);
+}
+html[data-theme="light"] {
+  --glass-bg: rgba(255, 255, 255, 0.58);
+  --glass-bg-2: rgba(255, 255, 255, 0.72);
+  --glass-bg-3: rgba(255, 255, 255, 0.86);
+  --glass-border: rgba(28, 26, 21, 0.10);
+  --glass-border-2: rgba(28, 26, 21, 0.18);
+  --glass-shadow: 0 12px 34px rgba(28, 26, 18, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  --glass-raise: rgba(28, 26, 21, 0.05);
+  --glass-raise-2: rgba(28, 26, 21, 0.09);
+  --glass-blur: blur(18px) saturate(140%);
+}
+
+/* ambient colour field so the blur has something to refract */
+html::after {
+  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(60% 55% at 12% 8%, rgba(59, 130, 246, 0.10), transparent 60%),
+    radial-gradient(55% 50% at 92% 12%, rgba(34, 197, 94, 0.08), transparent 60%),
+    radial-gradient(60% 55% at 85% 90%, rgba(251, 191, 36, 0.07), transparent 60%),
+    radial-gradient(50% 50% at 10% 92%, rgba(239, 68, 68, 0.07), transparent 60%);
+  opacity: 0.9;
+}
+html[data-theme="light"]::after { opacity: 0.5; background:
+    radial-gradient(60% 55% at 12% 8%, rgba(59, 130, 246, 0.12), transparent 60%),
+    radial-gradient(55% 50% at 92% 12%, rgba(34, 197, 94, 0.10), transparent 60%),
+    radial-gradient(60% 55% at 85% 90%, rgba(251, 191, 36, 0.10), transparent 60%),
+    radial-gradient(50% 50% at 10% 92%, rgba(239, 68, 68, 0.10), transparent 60%);
+}
+
+/* ---------- glass surfaces applied broadly ---------- */
+.card, .list, .action-sheet .as-group, #continueCard, .stat-cell, .ach-card, .cosm-tile,
+.seat-card, .daily-card, .rule, #handoffBanner, #handoffOverlay .ho-card, .code-box,
+.mp-input, .mp-text, .room-id-chip, .toast, .prof-head, .streak-cell, .end-stat,
+.home-actions .btn-tint, .home-actions .btn-primary, .home-foot .btn-tint {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+/* buttons: frosted, with crisp pressed states */
+.btn-primary, .btn-tint {
+  background: var(--glass-bg-2);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+/* iOS-primary: bright, legible on dark; dark + legible on light */
+.btn-primary { background: linear-gradient(180deg, #FFFFFF, #E8E8EC); color: #101014; border-color: rgba(255,255,255,0.4); }
+.btn-primary .ic { color: #101014; }
+.btn-primary .s { color: rgba(16,16,20,0.6); }
+.btn-primary:active { background: linear-gradient(180deg, #ECECF0, #DEDEE4); }
+.btn-tint:active { background: var(--glass-bg-3); }
+.btn[disabled] { opacity: 0.4; }
+html[data-theme="light"] .btn-primary {
+  background: linear-gradient(180deg, #2A2A30, #111116); color: #F5F5F7;
+  border-color: rgba(255,255,255,0.08);
+}
+html[data-theme="light"] .btn-primary .ic { color: #F5F5F7; }
+html[data-theme="light"] .btn-primary .s { color: rgba(245,245,247,0.7); }
+html[data-theme="light"] .btn-primary:active { background: linear-gradient(180deg, #000, #000); }
+
+/* nav */
+.nav { backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); background: linear-gradient(var(--bg) 70%, transparent); }
+.navbtn { background: var(--glass-bg); border: 1px solid var(--glass-border); }
+.navbtn:active { background: var(--glass-bg-3); }
+
+/* segmented + toggle */
+.seg { background: var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); }
+.seg::before { background: var(--glass-raise-2); box-shadow: var(--glass-shadow); }
+
+/* pills / tiles */
+.tile { box-shadow: inset 0 0 0 1px rgba(255,255,255,0.14), 0 4px 10px rgba(0,0,0,0.22); }
+
+/* =========================================================================
+   GAME SCREEN — board focus + four player control positions
+   ========================================================================= */
+#scr-game { padding: 0; background: transparent; }
+#scr-game .screen-inner { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+
+/* player summary pills (top) — frosted, active pops */
+#hud {
+  display: flex; gap: 8px;
+  padding: calc(var(--sat) + 10px) 14px 6px;
+  min-height: 58px; align-items: stretch; z-index: 5;
+  justify-content: center;
+}
+.pill {
+  position: relative; flex: 1 1 0; min-width: 0; max-width: 210px;
+  display: flex; align-items: center; gap: 8px;
+  border-radius: 16px; padding: 8px 10px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  transition: opacity 0.24s var(--ease), box-shadow 0.24s, transform 0.24s, border-color 0.24s;
+  opacity: 0.5; filter: saturate(0.5);
+}
+.pill.active { opacity: 1; filter: none; transform: translateY(-1px); border-color: var(--glass-border-2); box-shadow: 0 0 0 1px currentColor, 0 0 18px currentColor, var(--glass-shadow); }
+.pill .avatar { width: 30px; height: 30px; font-size: 12px; border-radius: 9px; }
+.pill.active .avatar { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px currentColor, 0 0 12px currentColor; }
+
+/* board: glass ring, centred */
+#boardWrap {
+  flex: 1; min-height: 0; position: relative;
+  display: grid; place-items: center;
+  padding: 6px 18px 4px;
+}
+#board { display: block; touch-action: none; border-radius: 26px; max-width: 100%; max-height: 100%;
+  box-shadow: 0 0 0 6px var(--glass-bg), 0 0 0 7px var(--glass-border), var(--glass-shadow), 0 0 60px rgba(59,130,246,0.10); }
+
+/* offline badge */
+#offlineBadge {
+  position: absolute; top: calc(var(--sat) + 12px); left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px; border-radius: 99px;
+  background: rgba(251, 191, 36, 0.14); color: #F5C64C;
+  border: 1px solid rgba(251, 191, 36, 0.30);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  font-size: 12px; font-weight: 640; letter-spacing: 0.01em; z-index: 16;
+  animation: dropIn 0.3s var(--ease);
+}
+#offlineBadge .ic { width: 15px; height: 15px; }
+html[data-theme="light"] #offlineBadge { color: #8A6A12; background: rgba(251,191,36,0.18); }
+
+/* ---------- seat bar: four player control pods ---------- */
+#seatBar {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  padding: 8px 14px 2px;
+  justify-content: center;
+  z-index: 6;
+}
+.seat-pod {
+  position: relative; flex: 1 1 0; min-width: 134px; max-width: 236px;
+  display: flex; flex-direction: column; gap: 7px;
+  padding: 9px 11px 8px;
+  border-radius: 18px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  color: var(--dice-pip);
+  transition: opacity 0.26s var(--ease), transform 0.26s var(--ease), box-shadow 0.3s, border-color 0.26s, background 0.26s, filter 0.26s;
+}
+.seat-pod .sp-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.seat-pod .sp-avatar {
+  width: 30px; height: 30px; flex: none;
+  border-radius: 10px; display: grid; place-items: center;
+  font-size: 13px; font-weight: 700; color: #fff;
+  background: var(--sp-bg, #555); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18), inset 0 -6px 10px rgba(0,0,0,0.2);
+}
+.seat-pod .sp-id { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.seat-pod .sp-name { font-size: 12.5px; font-weight: 640; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.seat-pod .sp-sub { font-size: 10px; color: var(--text-3); font-weight: 560; letter-spacing: 0.02em; margin-top: 1px; }
+.seat-pod .sp-status { flex: none; display: flex; align-items: center; gap: 5px; font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-3); }
+.seat-pod .sp-status .dot { width: 6px; height: 6px; }
+.seat-pod .sp-homes { display: flex; gap: 3px; }
+.seat-pod .sp-homes i { width: 7px; height: 7px; border-radius: 2.5px; background: var(--glass-raise-2); display: block; transition: background 0.25s, box-shadow 0.25s; }
+.seat-pod .sp-homes i.on { background: currentColor; box-shadow: 0 0 6px currentColor; }
+
+/* the dice inside each pod */
+.seat-pod .sp-dice { position: relative; width: 100%; display: grid; place-items: center; height: 64px; }
+.seat-pod .sp-roll {
+  position: relative; width: 60px; height: 60px; border-radius: 18px;
+  background: var(--glass-bg-2);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255,255,255,0.12);
+  display: grid; place-items: center;
+  perspective: 420px;
+  transition: transform 0.14s var(--press), box-shadow 0.22s, border-color 0.22s, opacity 0.2s, background 0.22s;
+}
+.seat-pod .sp-roll:active { transform: scale(0.92); }
+.seat-pod .sp-hint {
+  position: absolute; bottom: -7px; left: 50%; transform: translateX(-50%);
+  font-size: 8.5px; font-weight: 750; letter-spacing: 0.2em; text-transform: uppercase;
+  color: currentColor; opacity: 0; transition: opacity 0.2s; white-space: nowrap; pointer-events: none;
+}
+.seat-pod .sp-hint.show { opacity: 0.95; }
+
+/* per-pod cube */
+.seat-pod .sp-cube { width: 34px; height: 34px; position: relative; transform-style: preserve-3d; transition: transform 0.42s cubic-bezier(0.2, 0.66, 0.24, 1.04); }
+.seat-pod .sp-cube .face {
+  position: absolute; width: 34px; height: 34px; border-radius: 9px;
+  background: var(--dice-face);
+  box-shadow: inset 0 0 0 1px var(--dice-edge), inset 0 2px 2px rgba(255,255,255,0.65), inset 0 -4px 7px rgba(0,0,0,0.14);
+  display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); padding: 6px;
+}
+.seat-pod .sp-cube .pip { border-radius: 50%; background: var(--dice-pip); box-shadow: inset 0 2px 2px rgba(0,0,0,0.55), inset 0 -1px 1px rgba(255,255,255,0.18); place-self: center; width: 6px; height: 6px; }
+.seat-pod .sp-cube .f1 { transform: rotateY(0deg) translateZ(17px); }
+.seat-pod .sp-cube .f6 { transform: rotateY(180deg) translateZ(17px); }
+.seat-pod .sp-cube .f3 { transform: rotateY(90deg) translateZ(17px); }
+.seat-pod .sp-cube .f4 { transform: rotateY(-90deg) translateZ(17px); }
+.seat-pod .sp-cube .f2 { transform: rotateX(90deg) translateZ(17px); }
+.seat-pod .sp-cube .f5 { transform: rotateX(-90deg) translateZ(17px); }
+
+/* ---- ACTIVE player: prominent, glowing, pulsing, interactive ---- */
+.seat-pod.active {
+  opacity: 1; filter: none;
+  border-color: currentColor;
+  background: color-mix(in srgb, currentColor 10%, var(--glass-bg));
+  box-shadow: 0 0 0 1px currentColor, 0 0 22px currentColor, var(--glass-shadow);
+  transform: translateY(-2px);
+}
+.seat-pod.active .sp-roll {
+  border-color: currentColor;
+  background: color-mix(in srgb, currentColor 16%, var(--glass-bg-2));
+  box-shadow: 0 0 0 1px currentColor, 0 0 20px currentColor, var(--glass-shadow);
+  animation: podPulse 1.9s var(--ease) infinite;
+}
+.seat-pod.active .sp-hint { opacity: 0.95; }
+.seat-pod.active .sp-avatar { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px currentColor, 0 0 12px currentColor; }
+.seat-pod.active .sp-status { color: currentColor; }
+.seat-pod.active .sp-status .dot { background: currentColor; }
+
+/* ---- INACTIVE player: visible but dimmed, dice disabled ---- */
+.seat-pod.inactive { opacity: 0.52; filter: saturate(0.55) brightness(0.82); }
+.seat-pod.inactive .sp-roll { pointer-events: none; opacity: 0.72; }
+.seat-pod.inactive .sp-roll:active { transform: none; }
+.seat-pod.inactive .sp-status .dot { background: var(--glass-raise-2); }
+
+/* offline / waiting statuses */
+.seat-pod.status-offline .sp-status, .seat-pod.status-offline .sp-sub { color: var(--danger); }
+.seat-pod.status-offline .sp-status .dot { background: var(--danger); }
+.seat-pod.status-waiting .sp-status .dot { background: var(--yellow); }
+.seat-pod.status-ai .sp-status .dot { background: var(--ok); }
+
+@keyframes podPulse {
+  0%, 100% { box-shadow: 0 0 0 1px currentColor, 0 0 16px currentColor, var(--glass-shadow); }
+  50% { box-shadow: 0 0 0 1px currentColor, 0 0 30px currentColor, 0 8px 30px rgba(0,0,0,0.4); }
+}
+
+/* ---------- control dock: connection + turn + pause ---------- */
+#diceDock {
+  display: flex; align-items: center; gap: 10px;
+  margin: 6px 14px calc(var(--sab) + 10px);
+  padding: 10px 12px 10px 16px;
+  min-height: 56px; z-index: 5;
+  border-radius: 20px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+#turnChip { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; }
+#turnChip .avatar { width: 30px; height: 30px; font-size: 12px; border-radius: 9px; }
+#turnChip .t { font-size: 13.5px; font-weight: 650; letter-spacing: -0.008em; }
+#turnChip .s { font-size: 10.5px; color: var(--text-3); margin-top: 1px; font-weight: 560; }
+#netChip {
+  display: flex; align-items: center; gap: 6px; flex: none;
+  font-size: 10px; font-weight: 660; color: var(--text-2);
+  padding: 6px 10px; border-radius: 99px;
+  background: var(--glass-bg-2); border: 1px solid var(--glass-border);
+  font-variant-numeric: tabular-nums;
+}
+#netChip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex: none; }
+#netChip[data-net="reconnecting"] .dot { background: var(--yellow); animation: netPulse 1s ease-in-out infinite; }
+#netChip[data-net="offline"] .dot, #netChip[data-net="error"] .dot { background: var(--danger); }
+#netChip[data-net="waiting"] .dot { background: var(--yellow); }
+#netChip[data-net="reconnecting"] #netChipText, #netChip[data-net="waiting"] #netChipText { color: var(--yellow); }
+#netChip[data-net="offline"] #netChipText, #netChip[data-net="error"] #netChipText { color: #E0837E; }
+
+#pauseBtn {
+  width: 44px; height: 44px; border-radius: 14px; flex: none;
+  background: var(--glass-bg-2); border: 1px solid var(--glass-border);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  display: grid; place-items: center; color: var(--text-2);
+  box-shadow: var(--glass-shadow);
+  transition: transform 0.15s var(--press), background 0.15s;
+}
+#pauseBtn:active { transform: scale(0.9); background: var(--glass-bg-3); }
+
+/* ---------- empty / unavailable / loading states ---------- */
+.state-hint {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 12px 14px; margin: 8px 0; border-radius: 14px;
+  background: var(--glass-bg); border: 1px solid var(--glass-border);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  font-size: 13px; font-weight: 560; color: var(--text-2);
+}
+.state-hint .ic { width: 16px; height: 16px; color: var(--yellow); }
+.state-hint.loading .ic { animation: spin 0.9s linear infinite; color: var(--text-2); }
+.state-hint.error .ic { color: var(--danger); }
+.state-hint.ok .ic { color: var(--ok); }
+.state-hint .spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--glass-raise-2); border-top-color: var(--text-2); animation: spin 0.8s linear infinite; flex: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- responsive game layout ---------- */
+/* compact seat bar on small phones */
+@media (max-width: 420px) {
+  #seatBar { gap: 6px; padding: 6px 10px 2px; }
+  .seat-pod { min-width: calc(50% - 6px); max-width: none; flex: 1 1 calc(50% - 6px); }
+  .seat-pod .sp-dice { height: 54px; }
+  .seat-pod .sp-roll { width: 50px; height: 50px; }
+  .seat-pod .sp-cube { width: 28px; height: 28px; }
+  .seat-pod .sp-cube .face { width: 28px; height: 28px; padding: 5px; }
+  .seat-pod .sp-cube .f1 { transform: rotateY(0deg) translateZ(14px); }
+  .seat-pod .sp-cube .f6 { transform: rotateY(180deg) translateZ(14px); }
+  .seat-pod .sp-cube .f3 { transform: rotateY(90deg) translateZ(14px); }
+  .seat-pod .sp-cube .f4 { transform: rotateY(-90deg) translateZ(14px); }
+  .seat-pod .sp-cube .f2 { transform: rotateX(90deg) translateZ(14px); }
+  .seat-pod .sp-cube .f5 { transform: rotateX(-90deg) translateZ(14px); }
+  #hud { padding: calc(var(--sat) + 8px) 10px 4px; gap: 6px; }
+  .pill { padding: 6px 8px; }
+  .pill .avatar { width: 26px; height: 26px; font-size: 11px; }
+  #diceDock { margin: 4px 10px calc(var(--sab) + 8px); padding: 8px 10px; }
+}
+/* landscape phones: keep everything on one screen, no horizontal scroll */
+@media (max-height: 560px) and (orientation: landscape) {
+  #scr-game { overflow: hidden; }
+  #hud { min-height: 40px; padding: calc(var(--sat) + 4px) 10px 2px; }
+  .pill { padding: 4px 7px; border-radius: 12px; }
+  .pill .sub { display: none; }
+  #seatBar { padding: 4px 10px 2px; gap: 6px; }
+  .seat-pod { min-width: 0; flex: 1 1 0; padding: 6px 8px; }
+  .seat-pod .sp-dice { height: 38px; }
+  .seat-pod .sp-roll { width: 44px; height: 44px; }
+  .seat-pod .sp-cube { width: 26px; height: 26px; }
+  .seat-pod .sp-cube .face { width: 26px; height: 26px; padding: 4px; }
+  .seat-pod .sp-cube .f1 { transform: rotateY(0deg) translateZ(13px); }
+  .seat-pod .sp-cube .f6 { transform: rotateY(180deg) translateZ(13px); }
+  .seat-pod .sp-cube .f3 { transform: rotateY(90deg) translateZ(13px); }
+  .seat-pod .sp-cube .f4 { transform: rotateY(-90deg) translateZ(13px); }
+  .seat-pod .sp-cube .f2 { transform: rotateX(90deg) translateZ(13px); }
+  .seat-pod .sp-cube .f5 { transform: rotateX(-90deg) translateZ(13px); }
+  #diceDock { min-height: 44px; margin: 4px 10px calc(var(--sab) + 6px); padding: 6px 8px; }
+  #pauseBtn { width: 40px; height: 40px; }
+  #boardWrap { padding: 4px 10px; }
+}
+/* die interactivity states (pod dice) */
+.seat-pod .sp-roll[disabled], .seat-pod .sp-roll.dim { pointer-events: none; opacity: 0.6; }
+.seat-pod .sp-roll[disabled]:active { transform: none; }
+.seat-pod .sp-roll.busy { pointer-events: none; opacity: 0.85; }
+.seat-pod.active .sp-roll.busy { animation: podPulse 1.2s var(--ease) infinite; }
+
+/* avatar mapping badge for pass-and-play sub label remains legible */
+.seat-pod .sp-sub { letter-spacing: 0.03em; text-transform: uppercase; font-size: 9.5px; }
+/* active "your turn" pod keeps its own color (not the yellow waiting dot) */
+.seat-pod.status-turn .sp-status { color: currentColor; }
+.seat-pod.status-turn .sp-status .dot { background: currentColor; }
+/* active pod's die stays bright even when a remote/AI player is rolling */
+.seat-pod.active .sp-roll[disabled] { opacity: 1; }
+.seat-pod.active .sp-roll.dim { opacity: 0.9; }
+
+/* =========================================================================
+   FOUR-SIDE PLAYER POSITIONS — pods hug the board on its four sides
+   ========================================================================= */
+#boardWrap {
+  display: grid;
+  /* lanes set from JS (--lane-l/r/t/b); centre = board */
+  grid-template-columns: var(--lane-l, 0px) minmax(0, 1fr) var(--lane-r, 0px);
+  grid-template-rows: var(--lane-t, 0px) minmax(0, 1fr) var(--lane-b, 0px);
+  align-items: center;
+  justify-items: center;
+  padding: 6px 12px 4px;
+  position: relative;
+}
+#boardWrap > #board { grid-column: 2; grid-row: 2; }
+/* seatBar is a content-only floater: its pod children become grid items */
+#seatBar {
+  grid-column: 1 / 4;
+  grid-row: 1 / 4;
+  display: contents;
+  gap: 0;
+}
+/* pods: identical compact glass cards at the four edge-midpoints */
+.seat-pod { width: 104px; }
+.seat-pod.side-top    { grid-column: 2; grid-row: 1; }
+.seat-pod.side-bottom { grid-column: 2; grid-row: 3; }
+.seat-pod.side-left   { grid-column: 1; grid-row: 2; }
+.seat-pod.side-right  { grid-column: 3; grid-row: 2; }
+
+/* absolute decorations inside boardWrap must not become grid items */
+#boardWrap > #offlineBadge,
+#boardWrap > #handoffBanner { position: absolute; }
+
+/* team badge chip inside a pod */
+.seat-pod .sp-team {
+  flex: none; max-width: 56px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 8.5px; font-weight: 750; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 2px 6px; border-radius: 6px; color: var(--text-2);
+  background: var(--glass-raise); border: 1px solid var(--glass-border);
+}
+.seat-pod .sp-team[data-ti="0"] { color: #E0837E; background: rgba(239,68,68,.14); border-color: rgba(239,68,68,.34); }
+.seat-pod .sp-team[data-ti="1"] { color: #5CC98A; background: rgba(34,197,94,.12); border-color: rgba(34,197,94,.30); }
+
+/* ---------- Team-Up setup panel ---------- */
+.team-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0 2px; }
+.team-card {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 10px 12px; border-radius: 14px;
+  background: var(--glass-bg); border: 1px solid var(--glass-border);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
+}
+.team-card.team-a { border-color: rgba(239,68,68,.32); }
+.team-card.team-b { border-color: rgba(34,197,94,.30); }
+.team-card .team-head { display: flex; flex-direction: column; gap: 3px; }
+.team-card .team-name {
+  width: 100%; height: 34px; border-radius: 9px; padding: 0 10px;
+  background: var(--glass-bg-2); border: 1px solid var(--glass-border);
+  color: var(--text); font-size: 14px; font-weight: 650; outline: none;
+}
+.team-card.team-a .team-name { color: #E0837E; }
+.team-card.team-b .team-name { color: #5CC98A; }
+.team-card .team-members { font-size: 10.5px; color: var(--text-2); font-weight: 560; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.team-card .team-score { font-size: 10px; color: var(--text-3); font-weight: 620; letter-spacing: .04em; }
+.team-card .team-score b { color: var(--text); }
+
+/* ---------- in-game achievement toast ---------- */
+#achHost {
+  position: absolute; inset: 0; z-index: 60; pointer-events: none;
+  display: flex; flex-direction: column; gap: 8px; align-items: center;
+  justify-content: flex-start; padding-top: calc(var(--sat) + 12px);
+}
+.ach-toast {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px 10px 12px; border-radius: 16px;
+  background: var(--glass-bg-2);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border-2);
+  box-shadow: var(--glass-shadow), 0 0 0 1px rgba(251,191,36,.22), 0 0 24px rgba(251,191,36,.28);
+  transform: translateY(-18px); opacity: 0; transition: transform .3s var(--spring), opacity .3s;
+  max-width: min(88vw, 420px);
+}
+.ach-toast.show { transform: translateY(0); opacity: 1; }
+.ach-toast.out { opacity: 0; transform: translateY(-14px); }
+.ach-toast .ach-icon {
+  width: 34px; height: 34px; border-radius: 11px; flex: none;
+  display: grid; place-items: center; color: #7A5A00;
+  background: linear-gradient(180deg,#FBD76A,#E9B94B);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 4px 10px rgba(0,0,0,.28);
+}
+.ach-toast .ach-icon .ic { width: 18px; height: 18px; }
+.ach-toast .ach-body { display: flex; flex-direction: column; min-width: 0; }
+.ach-toast .ach-k { font-size: 9px; font-weight: 750; letter-spacing: .14em; text-transform: uppercase; color: var(--text-3); }
+.ach-toast .ach-n { font-size: 14px; font-weight: 680; color: var(--text); }
+.ach-toast .ach-s { font-size: 11px; color: var(--text-2); margin-top: 1px; }
+
+/* ---------- victory overlay (scr-end) ---------- */
+#scr-end { overflow: hidden; justify-content: space-between; }
+#confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+#confetti i {
+  position: absolute; top: -12px; display: block;
+  border-radius: 2px; opacity: .95;
+  animation: confFall linear infinite;
+}
+@keyframes confFall {
+  0%   { transform: translate(0, 0) rotate(var(--rot, 0deg)); }
+  100% { transform: translate(var(--drift, 0px), 112vh) rotate(calc(var(--rot, 0deg) + 540deg)); }
+}
+.end-head { position: relative; z-index: 2; }
+.end-head .avatar {
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.16), inset 0 -10px 20px rgba(0,0,0,.24),
+    0 0 0 1px rgba(217,169,78,.6), 0 0 0 5px rgba(217,169,78,.16), var(--shadow-2);
+}
+.end-head[style*="--win"] .avatar { box-shadow: 0 0 0 2px var(--win), 0 0 0 6px color-mix(in srgb, var(--win) 30%, transparent), 0 0 34px var(--win), var(--shadow-2); }
+.rank-row.win { background: var(--glass-raise); }
+.rank-row .rank-team {
+  font-size: 8.5px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase;
+  padding: 2px 6px; border-radius: 6px; color: var(--text-3);
+  background: var(--glass-raise); border: 1px solid var(--glass-border); flex: none;
+}
+.rank-row .rank-team.win { color: var(--gold); border-color: rgba(217,169,78,.4); background: rgba(217,169,78,.12); }
+
+/* ---------- compact pods on narrow phones ---------- */
+@media (max-width: 559px) {
+  .seat-pod { width: 78px; padding: 7px 7px 6px; gap: 5px; }
+  .seat-pod .sp-avatar { width: 24px; height: 24px; font-size: 11px; border-radius: 8px; }
+  .seat-pod .sp-name { font-size: 10px; }
+  .seat-pod .sp-sub { font-size: 8px; }
+  .seat-pod .sp-status-text { font-size: 7.5px; }
+  .seat-pod .sp-team { max-width: 46px; font-size: 7px; padding: 1px 4px; }
+  .seat-pod .sp-homes i { width: 6px; height: 6px; }
+  .seat-pod .sp-dice { height: 44px; }
+  .seat-pod .sp-roll { width: 44px; height: 44px; border-radius: 13px; }
+  .seat-pod .sp-cube { width: 26px; height: 26px; }
+  .seat-pod .sp-cube .face { width: 26px; height: 26px; padding: 4px; }
+  .seat-pod .sp-cube .f1 { transform: rotateY(0deg) translateZ(13px); }
+  .seat-pod .sp-cube .f6 { transform: rotateY(180deg) translateZ(13px); }
+  .seat-pod .sp-cube .f3 { transform: rotateY(90deg) translateZ(13px); }
+  .seat-pod .sp-cube .f4 { transform: rotateY(-90deg) translateZ(13px); }
+  .seat-pod .sp-cube .f2 { transform: rotateX(90deg) translateZ(13px); }
+  .seat-pod .sp-cube .f5 { transform: rotateX(-90deg) translateZ(13px); }
+}
+/* short landscape: keep the four-side layout but tighten */
+@media (max-height: 560px) and (orientation: landscape) {
+  .seat-pod { padding: 5px 7px 5px; gap: 4px; }
+  .seat-pod .sp-dice { height: 40px; }
+  .seat-pod .sp-roll { width: 40px; height: 40px; }
+}

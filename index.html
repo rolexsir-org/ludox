@@ -49,6 +49,10 @@
     <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4.5 6.5h15M9.5 6V4.5h5V6M6.5 6.5l1 13.5h9l1-13.5M10 10v6.5M14 10v6.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 3.5v10m0-10L8.2 7.3M12 3.5l3.8 3.8M7 12H5.8A2.3 2.3 0 0 0 3.5 14.3v3.9A2.3 2.3 0 0 0 5.8 20.5h12.4a2.3 2.3 0 0 0 2.3-2.3v-3.9A2.3 2.3 0 0 0 18.2 12H17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3.2 5 6v6c0 4.4 3 7.6 7 8.8 4-1.2 7-4.4 7-8.8V6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="m8.8 12 2.2 2.2 4.2-4.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-cloud-off" viewBox="0 0 24 24"><path d="M17.5 18H6.5a4 4 0 0 1-1.1-7.9A5.5 5.5 0 0 1 15 7.3a4.5 4.5 0 0 1 6 4.3A4 4 0 0 1 17.5 18Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M3 3 21 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M2.5 9a15 15 0 0 1 19 0M5.5 12.5a10 10 0 0 1 13 0M8.5 16a5.5 5.5 0 0 1 7 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="19" r="1.2" fill="currentColor"/></symbol>
+    <symbol id="i-unavailable" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7.5v5M12 16.2v.2" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+    <symbol id="i-loader" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
   </defs>
 </svg>
 
@@ -60,21 +64,17 @@
   <section class="screen game" id="scr-game">
     <header id="hud"></header>
     <div id="boardWrap">
+      <div id="seatBar" role="group" aria-label="Players"></div>
       <canvas id="board" aria-label="Ludo board"></canvas>
+      <div id="offlineBadge" class="hidden" role="status"><svg class="ic"><use href="#i-cloud-off"/></svg><span>Offline — playing with local data</span></div>
       <button id="handoffBanner" class="hidden" aria-label="Pass device"></button>
     </div>
     <div id="diceDock">
-      <div id="netChip" class="hidden" role="status" aria-label="Connection status"></div>
+      <div id="netChip" class="hidden" role="status" aria-label="Connection status"><span class="dot"></span><span id="netChipText">Connected</span></div>
       <div id="turnChip"></div>
-      <div class="dice-slot">
-        <div id="diceGlow"></div>
-        <button id="diceBtn" aria-label="Roll the dice">
-          <div id="cube"></div>
-        </button>
-        <div id="rollHint">Roll</div>
-      </div>
       <button id="pauseBtn" aria-label="Pause menu"><svg class="ic"><use href="#i-pause"/></svg></button>
     </div>
+    <div id="achHost" aria-live="polite"></div>
     <div id="handoffOverlay" class="overlay hidden"></div>
     <div id="pauseMenu" class="overlay hidden"></div>
   </section>

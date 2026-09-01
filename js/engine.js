@@ -92,13 +92,30 @@
         throw new Error('engine: seat colors must be unique 0..3');
       }
     }
+    /* normalize teams → { seatIndex: teamIdx }. `cfg.teams` is an array of
+       seat-index lists, e.g. [[0,2],[1,3]] = P1+P3 vs P2+P4. Also accepts
+       {seatIdx: teamIdx}. */
+    var TEAM = null;
+    if (cfg.teams) {
+      TEAM = {};
+      if (Array.isArray(cfg.teams)) {
+        cfg.teams.forEach(function (list, ti) {
+          (list || []).forEach(function (idx) { TEAM[idx | 0] = ti; });
+        });
+      } else {
+        Object.keys(cfg.teams).forEach(function (idx) { TEAM[idx | 0] = cfg.teams[idx]; });
+      }
+    }
     var st = {
       v: 1,
       mode: MODES.indexOf(cfg.mode) >= 0 ? cfg.mode : 'quick',
       rules: {
         firstToCaptures: (cfg.rules && cfg.rules.firstToCaptures) || 0,
         daily: !!(cfg.rules && cfg.rules.daily),
-        headStart: (cfg.rules && cfg.rules.headStart) || null
+        headStart: (cfg.rules && cfg.rules.headStart) || null,
+        /* team-up variant */
+        teamHomeTarget: (cfg.rules && cfg.rules.teamHomeTarget) || 8,
+        teamCaptureTarget: (cfg.rules && cfg.rules.teamCaptureTarget) || 0
       },
       seats: seats,
       tokens: seats.map(function (s) { return [YARD, YARD, YARD, YARD]; }),
@@ -107,6 +124,9 @@
       lastRoll: null,
       sixChain: 0,              // consecutive sixes within the current turn
       winner: null,
+      teamWin: null,            // 0 | 1 | null  (winner team in team mode)
+      team: (TEAM ? seats.map(function (s) { return TEAM[s.color] != null ? TEAM[s.color] : null; }) : null),
+      teamName: (cfg.teamNames ? cfg.teamNames.slice(0, 2) : ['Team A', 'Team B']),
       rankings: null,
       stats: seats.map(function () { return newStats(); }),
       moveNo: 0,
@@ -190,6 +210,39 @@
     return true;
   }
 
+  /* ---- team helpers (team mode only) ---- */
+  function teamSeats(st, team) {
+    var out = [];
+    st.seats.forEach(function (s, i) { if (st.team[i] === team) out.push(i); });
+    return out;
+  }
+  function teamProgress(st, team) {
+    var sum = 0;
+    teamSeats(st, team).forEach(function (i) { sum += progress(st, i); });
+    return sum;
+  }
+  function teamHomes(st, team) {
+    var sum = 0;
+    teamSeats(st, team).forEach(function (i) {
+      st.tokens[i].forEach(function (p) { if (p === HOME) sum++; });
+    });
+    return sum;
+  }
+  function teamCaptures(st, team) {
+    var c = 0;
+    teamSeats(st, team).forEach(function (i) { c += st.stats[i].captures; });
+    return c;
+  }
+  function teamIsWin(st, team) {
+    if (st.rules.teamHomeTarget && teamHomes(st, team) >= st.rules.teamHomeTarget) return true;
+    if (st.rules.teamCaptureTarget && teamCaptures(st, team) >= st.rules.teamCaptureTarget) return true;
+    return false;
+  }
+  function teamMembersOf(st, seatIdx) {
+    if (!st.team || st.team[seatIdx] == null) return [seatIdx];
+    return teamSeats(st, st.team[seatIdx]);
+  }
+
   /* Applies a move from legalMoves(). Independently re-verified before the
      state changes — illegal input throws and mutates nothing. */
   function applyMove(st, move) {
@@ -210,10 +263,24 @@
               captures: verified.captures, release: verified.release },
       path: pathPositions(move.from, move.to),
       captures: verified.captures, home: verified.home,
-      win: false, rankings: null
+      win: false, teamWin: null, rankings: null
     };
-    if (isWin(st, seatIdx)) {
+    var teamIdx = (st.team && st.team[seatIdx] != null) ? st.team[seatIdx] : null;
+    if (teamIdx != null) {
+      /* team mode: only the team objective ends the match; an individual
+         finishing all four only contributes to the team's condition. */
+      if (teamIsWin(st, teamIdx)) {
+        st.winner = seatIdx;
+        st.teamWin = teamIdx;
+        st.phase = 'over';
+        st.rankings = rankPlayers(st, seatIdx, teamIdx);
+        events.win = true;
+        events.teamWin = teamIdx;
+        events.rankings = st.rankings;
+      }
+    } else if (isWin(st, seatIdx)) {
       st.winner = seatIdx;
+      st.teamWin = null;
       st.phase = 'over';
       st.rankings = rankPlayers(st, seatIdx);
       events.win = true;
@@ -237,14 +304,22 @@
     return sum;
   }
 
-  /* Winner first, everyone else by progress (max 228). */
-  function rankPlayers(st, winnerIdx) {
+  /* Winner first, everyone else by progress (max 228).
+     In team mode (teamWin given) the winning team's members all rank first. */
+  function rankPlayers(st, winnerIdx, teamWin) {
     var rows = st.seats.map(function (s, i) {
-      return { seat: i, progress: progress(st, i), captures: st.stats[i].captures };
+      return { seat: i, progress: progress(st, i), captures: st.stats[i].captures, team: st.team ? st.team[i] : null };
     });
     rows.sort(function (a, b) {
-      if (a.seat === winnerIdx) return -1;
-      if (b.seat === winnerIdx) return 1;
+      if (teamWin != null) {
+        var at = a.team, bt = b.team;
+        if (at === teamWin && bt !== teamWin) return -1;
+        if (bt === teamWin && at !== teamWin) return 1;
+        if (at !== null && bt !== null && at !== bt) return (b.progress - a.progress) || (a.seat - b.seat);
+      } else {
+        if (a.seat === winnerIdx) return -1;
+        if (b.seat === winnerIdx) return 1;
+      }
       return (b.progress - a.progress) || (b.captures - a.captures) || (a.seat - b.seat);
     });
     return rows.map(function (r) { return r.seat; });
@@ -323,6 +398,20 @@
       if (!isInt2(obj.sixChain, 0, 2)) return null;
       if (obj.winner !== null && !isInt2(obj.winner, 0, obj.seats.length - 1)) return null;
       if (obj.winner !== null && obj.phase !== 'over') return null;          // winner only exists at 'over'
+      if (obj.teamWin !== null && obj.teamWin !== undefined && !isInt2(obj.teamWin, 0, 1)) return null;
+      if (obj.teamWin !== null && obj.teamWin !== undefined && obj.phase !== 'over') return null;
+      if (obj.team != null) {
+        if (!Array.isArray(obj.team) || obj.team.length !== obj.seats.length) return null;
+        for (var tm = 0; tm < obj.team.length; tm++) {
+          if (obj.team[tm] !== null && !isInt2(obj.team[tm], 0, 1)) return null;
+        }
+      }
+      if (obj.teamName != null) {
+        if (!Array.isArray(obj.teamName) || obj.teamName.length < 2 || obj.teamName.length > 2) return null;
+        for (var tn = 0; tn < obj.teamName.length; tn++) {
+          if (typeof obj.teamName[tn] !== 'string' || obj.teamName[tn].length < 1 || obj.teamName[tn].length > 24) return null;
+        }
+      }
       if (!isInt2(obj.moveNo, 0, 1e9)) return null;
       if (!isInt2(obj.startedAt, 0)) return null;
       if (!Array.isArray(obj.stats) || obj.stats.length !== obj.seats.length) return null;
@@ -390,6 +479,8 @@
     legalMoves: legalMoves, applyMove: applyMove, registerRoll: registerRoll,
     endTurn: endTurn, beginsTurn: beginsTurn,
     progress: progress, rankPlayers: rankPlayers, isWin: isWin,
+    teamSeats: teamSeats, teamProgress: teamProgress, teamHomes: teamHomes,
+    teamCaptures: teamCaptures, teamIsWin: teamIsWin, teamMembersOf: teamMembersOf,
     validateState: validateState, assertMoveLegal: assertMoveLegal,
     assertInvariants: assertInvariants, setStrict: function (v) { STRICT = v; }
   };
