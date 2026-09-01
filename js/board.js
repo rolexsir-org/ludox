@@ -43,6 +43,15 @@
   }
 
   var YARD_REGIONS = [[0.5, 9.5], [0.5, 0.5], [9.5, 0.5], [9.5, 9.5]]; // top-left of 6×6 area, grid units
+  /* which board side a player's yard/home points to (0=Red bottom,1=Green left,2=Yellow top,3=Blue right). */
+  var SIDE_OF = ['bottom', 'left', 'top', 'right'];
+  /* reserved lane width (x) / height (y) for the four player pods hugging the board.
+     Standalone (desktop/tablet) vs compact (narrow phones) so the board stays the hero. */
+  function podLanes() {
+    var iw = (typeof global === 'object' && typeof global.innerWidth === 'number') ? global.innerWidth : 420;
+    var compact = iw < 560;
+    return { x: compact ? 78 : 104, y: compact ? 96 : 120 };
+  }
   function yardDocks(m, colorIdx) {
     var reg = YARD_REGIONS[colorIdx];
     var midC = reg[0] + 3, midR = reg[1] + 3;
@@ -443,7 +452,8 @@
     drawStatic: drawStatic, drawYardGlow: drawYardGlow,
     drawToken: drawToken, drawHalo: drawHalo, drawTarget: drawTarget,
     drawCountBadge: drawCountBadge, drawBurst: drawBurst, drawRipple: drawRipple,
-    rr: rr
+    rr: rr,
+    SIDE_OF: SIDE_OF, podLanes: podLanes
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = global.LudoraBoard;

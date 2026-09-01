@@ -17,9 +17,13 @@
      from current token layout (each opponent token within 1..6 behind). */
   function threatAt(st, seatIdx, abs) {
     if (abs === null || E.SAFE[abs]) return 0;
+    /* a square occupied by a same-colour block (2+ tokens) is untouchable */
+    if (E.isBlockedAt(st, seatIdx, abs)) return 0;
     var p = 0;
     for (var s = 0; s < st.seats.length; s++) {
       if (s === seatIdx) continue;
+      /* teammates never attack you */
+      if (st.team && st.team[seatIdx] != null && st.team[s] === st.team[seatIdx]) continue;
       for (var t = 0; t < 4; t++) {
         var pos = st.tokens[s][t];
         if (pos < 0 || pos > E.LAST_RING_POS) continue; // yard / lane / home can't hit
@@ -27,7 +31,10 @@
         var dist = (abs - oppAbs + 52) % 52;
         if (dist >= 1 && dist <= 6) {
           // the opponent must not overshoot its own ring exit with that roll
-          if (pos + dist <= E.LAST_RING_POS) p += 1 / 6;
+          if (pos + dist > E.LAST_RING_POS) continue;
+          // ...and must not have to cross a block to reach it
+          if (E.isMoveBlocked(st, s, pos, pos + dist)) continue;
+          p += 1 / 6;
         }
       }
     }

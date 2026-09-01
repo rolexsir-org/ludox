@@ -51,6 +51,54 @@
     return (START[colorIdx] + pos) % 52;
   }
 
+  /* Are two seats on the same team (team mode)? Solo seats count as their
+     own team, and a seat is always friendly to itself. */
+  function isFriendly(st, a, b) {
+    if (a === b) return true;
+    if (!st.team || st.team[a] == null || st.team[b] == null) return false;
+    return st.team[a] === st.team[b];
+  }
+
+  /* Classic rule: two (or more) tokens from the same OPPONENT group on one
+     ring cell form a block — not capturable and cannot be landed on or
+     passed through. In team mode an opponent group is a whole team, so
+     partners can build blocks together; teammates never block each other.
+     Solo mode treats each seat (colour) as its own group. */
+  function isBlockedAt(st, seatIdx, abs) {
+    if (abs == null) return false;
+    var groups = {};
+    for (var s = 0; s < st.seats.length; s++) {
+      if (isFriendly(st, seatIdx, s)) continue;
+      var key = (st.team && st.team[s] != null) ? ('t' + st.team[s]) : ('s' + s);
+      (groups[key] = groups[key] || []).push(s);
+    }
+    for (var g in groups) {
+      var seats = groups[g], n = 0;
+      for (var si = 0; si < seats.length; si++) {
+        var toks = st.tokens[seats[si]];
+        for (var t = 0; t < 4; t++) {
+          var p = toks[t];
+          if (p >= 0 && p <= LAST_RING_POS && absCell(st.seats[seats[si]].color, p) === abs) n++;
+        }
+      }
+      if (n >= 2) return true;
+    }
+    return false;
+  }
+
+  /* Does `seatIdx`'s path from `fromPos` to `toPos` cross or land on an
+     opponent block? Release (from YARD → 0) checks only the target cell. */
+  function isMoveBlocked(st, seatIdx, fromPos, toPos) {
+    var color = st.seats[seatIdx].color;
+    var first = fromPos === YARD ? 0 : fromPos + 1;
+    if (first > toPos) return false;
+    for (var p = first; p <= toPos; p++) {
+      if (p > LAST_RING_POS) break;              // lane/home cells are never blocked
+      if (isBlockedAt(st, seatIdx, absCell(color, p))) return true;
+    }
+    return false;
+  }
+
   /* Grid cell [col,row] for a token position (pos 56 → null, use homePoint). */
   function posToCell(colorIdx, pos) {
     if (pos === YARD) return null;
@@ -79,7 +127,7 @@
     var seats = cfg.seats
       .map(function (s, i) {
         return {
-          i: i, color: s.color | 0, kind: s.kind === 'ai' ? 'ai' : 'human',
+          i: i, _src: i, color: s.color | 0, kind: s.kind === 'ai' ? 'ai' : 'human',
           name: String(s.name || ('Player ' + (i + 1))).slice(0, 18),
           ai: s.kind === 'ai' ? (s.ai | 0) : null
         };
@@ -92,13 +140,32 @@
         throw new Error('engine: seat colors must be unique 0..3');
       }
     }
+    /* normalize teams → { seatIndex: teamIdx }. `cfg.teams` is an array of
+       seat-index lists, e.g. [[0,2],[1,3]] = P1+P3 vs P2+P4. Also accepts
+       {seatIdx: teamIdx}. Indices refer to the *seat list* (0..seats-1),
+       matched by each seat's original position in `cfg.seats` so the mapping
+       survives the color-sort below. */
+    var TEAM = null;
+    if (cfg.teams) {
+      TEAM = {};
+      if (Array.isArray(cfg.teams)) {
+        cfg.teams.forEach(function (list, ti) {
+          (list || []).forEach(function (idx) { TEAM[idx | 0] = ti; });
+        });
+      } else {
+        Object.keys(cfg.teams).forEach(function (idx) { TEAM[idx | 0] = cfg.teams[idx]; });
+      }
+    }
     var st = {
       v: 1,
       mode: MODES.indexOf(cfg.mode) >= 0 ? cfg.mode : 'quick',
       rules: {
         firstToCaptures: (cfg.rules && cfg.rules.firstToCaptures) || 0,
         daily: !!(cfg.rules && cfg.rules.daily),
-        headStart: (cfg.rules && cfg.rules.headStart) || null
+        headStart: (cfg.rules && cfg.rules.headStart) || null,
+        /* team-up variant */
+        teamHomeTarget: (cfg.rules && cfg.rules.teamHomeTarget) || 8,
+        teamCaptureTarget: (cfg.rules && cfg.rules.teamCaptureTarget) || 0
       },
       seats: seats,
       tokens: seats.map(function (s) { return [YARD, YARD, YARD, YARD]; }),
@@ -107,6 +174,9 @@
       lastRoll: null,
       sixChain: 0,              // consecutive sixes within the current turn
       winner: null,
+      teamWin: null,            // 0 | 1 | null  (winner team in team mode)
+      team: (TEAM ? seats.map(function (s) { return TEAM[s._src] != null ? TEAM[s._src] : null; }) : null),
+      teamName: (cfg.teamNames ? cfg.teamNames.slice(0, 2) : ['Team A', 'Team B']),
       rankings: null,
       stats: seats.map(function () { return newStats(); }),
       moveNo: 0,
@@ -134,17 +204,17 @@
      Returns [{ token, from, to, captures:[{seat,token}], home, release }] */
   function legalMoves(st, roll) {
     if (st.phase === 'over' || st.winner !== null) return [];
-    var seatIdx = st.turn, color = st.seats[seatIdx].color;
+    var seatIdx = st.turn;
     var out = [];
     for (var t = 0; t < 4; t++) {
       var from = st.tokens[seatIdx][t];
       if (from === HOME) continue;
       if (from === YARD) {
-        if (roll === 6) out.push(makeMove(st, seatIdx, t, 0));
+        if (roll === 6 && !isMoveBlocked(st, seatIdx, YARD, 0)) out.push(makeMove(st, seatIdx, t, 0));
         continue;
       }
       var to = from + roll;
-      if (to <= HOME) out.push(makeMove(st, seatIdx, t, to));
+      if (to <= HOME && !isMoveBlocked(st, seatIdx, from, to)) out.push(makeMove(st, seatIdx, t, to));
     }
     return out;
   }
@@ -154,9 +224,9 @@
     var captures = [];
     if (to <= LAST_RING_POS) {
       var c = absCell(st.seats[seatIdx].color, to);
-      if (!SAFE[c]) {
+      if (!SAFE[c] && !isBlockedAt(st, seatIdx, c)) {
         for (var s = 0; s < st.seats.length; s++) {
-          if (s === seatIdx) continue;
+          if (isFriendly(st, seatIdx, s)) continue;
           for (var t = 0; t < 4; t++) {
             if (st.tokens[s][t] >= 0 && st.tokens[s][t] <= LAST_RING_POS &&
                 tokenAbs(st, s, t) === c) {
@@ -183,11 +253,46 @@
     if (from === HOME) throw new Error('engine: token already home');
     if (from === YARD) {
       if (move.to !== 0) throw new Error('engine: release must land on start');
+      if (isMoveBlocked(st, seatIdx, from, move.to)) throw new Error('engine: release blocked');
       return true;
     }
     var d = move.to - from;
     if (d < 1 || d > 6) throw new Error('engine: impossible roll distance ' + d);
+    if (isMoveBlocked(st, seatIdx, from, move.to)) throw new Error('engine: move crosses a block');
     return true;
+  }
+
+  /* ---- team helpers (team mode only) ---- */
+  function teamSeats(st, team) {
+    var out = [];
+    st.seats.forEach(function (s, i) { if (st.team[i] === team) out.push(i); });
+    return out;
+  }
+  function teamProgress(st, team) {
+    var sum = 0;
+    teamSeats(st, team).forEach(function (i) { sum += progress(st, i); });
+    return sum;
+  }
+  function teamHomes(st, team) {
+    var sum = 0;
+    teamSeats(st, team).forEach(function (i) {
+      st.tokens[i].forEach(function (p) { if (p === HOME) sum++; });
+    });
+    return sum;
+  }
+  function teamCaptures(st, team) {
+    var c = 0;
+    teamSeats(st, team).forEach(function (i) { c += st.stats[i].captures; });
+    return c;
+  }
+  function teamIsWin(st, team) {
+    if (st.rules.teamHomeTarget && teamHomes(st, team) >= st.rules.teamHomeTarget) return true;
+    if (st.rules.teamCaptureTarget && teamCaptures(st, team) >= st.rules.teamCaptureTarget) return true;
+    return false;
+  }
+  function teamMembersOf(st, seatIdx) {
+    if (!st.team || st.team[seatIdx] == null) return [seatIdx];
+    return teamSeats(st, st.team[seatIdx]);
   }
 
   /* Applies a move from legalMoves(). Independently re-verified before the
@@ -210,10 +315,24 @@
               captures: verified.captures, release: verified.release },
       path: pathPositions(move.from, move.to),
       captures: verified.captures, home: verified.home,
-      win: false, rankings: null
+      win: false, teamWin: null, rankings: null
     };
-    if (isWin(st, seatIdx)) {
+    var teamIdx = (st.team && st.team[seatIdx] != null) ? st.team[seatIdx] : null;
+    if (teamIdx != null) {
+      /* team mode: only the team objective ends the match; an individual
+         finishing all four only contributes to the team's condition. */
+      if (teamIsWin(st, teamIdx)) {
+        st.winner = seatIdx;
+        st.teamWin = teamIdx;
+        st.phase = 'over';
+        st.rankings = rankPlayers(st, seatIdx, teamIdx);
+        events.win = true;
+        events.teamWin = teamIdx;
+        events.rankings = st.rankings;
+      }
+    } else if (isWin(st, seatIdx)) {
       st.winner = seatIdx;
+      st.teamWin = null;
       st.phase = 'over';
       st.rankings = rankPlayers(st, seatIdx);
       events.win = true;
@@ -237,14 +356,25 @@
     return sum;
   }
 
-  /* Winner first, everyone else by progress (max 228). */
-  function rankPlayers(st, winnerIdx) {
+  /* Winner first, everyone else by progress (max 228).
+     In team mode (teamWin given) the winning team's members all rank first. */
+  function rankPlayers(st, winnerIdx, teamWin) {
     var rows = st.seats.map(function (s, i) {
-      return { seat: i, progress: progress(st, i), captures: st.stats[i].captures };
+      return { seat: i, progress: progress(st, i), captures: st.stats[i].captures, team: st.team ? st.team[i] : null };
     });
     rows.sort(function (a, b) {
-      if (a.seat === winnerIdx) return -1;
-      if (b.seat === winnerIdx) return 1;
+      if (teamWin != null) {
+        /* the seat that actually triggered the team win ranks first, then
+           the rest of the winning team, then the losing team. */
+        if (a.seat === winnerIdx) return -1;
+        if (b.seat === winnerIdx) return 1;
+        var aw = a.team === teamWin, bw = b.team === teamWin;
+        if (aw !== bw) return aw ? -1 : 1;
+        return (b.progress - a.progress) || (b.captures - a.captures) || (a.seat - b.seat);
+      } else {
+        if (a.seat === winnerIdx) return -1;
+        if (b.seat === winnerIdx) return 1;
+      }
       return (b.progress - a.progress) || (b.captures - a.captures) || (a.seat - b.seat);
     });
     return rows.map(function (r) { return r.seat; });
@@ -323,6 +453,20 @@
       if (!isInt2(obj.sixChain, 0, 2)) return null;
       if (obj.winner !== null && !isInt2(obj.winner, 0, obj.seats.length - 1)) return null;
       if (obj.winner !== null && obj.phase !== 'over') return null;          // winner only exists at 'over'
+      if (obj.teamWin !== null && obj.teamWin !== undefined && !isInt2(obj.teamWin, 0, 1)) return null;
+      if (obj.teamWin !== null && obj.teamWin !== undefined && obj.phase !== 'over') return null;
+      if (obj.team != null) {
+        if (!Array.isArray(obj.team) || obj.team.length !== obj.seats.length) return null;
+        for (var tm = 0; tm < obj.team.length; tm++) {
+          if (obj.team[tm] !== null && !isInt2(obj.team[tm], 0, 1)) return null;
+        }
+      }
+      if (obj.teamName != null) {
+        if (!Array.isArray(obj.teamName) || obj.teamName.length < 2 || obj.teamName.length > 2) return null;
+        for (var tn = 0; tn < obj.teamName.length; tn++) {
+          if (typeof obj.teamName[tn] !== 'string' || obj.teamName[tn].length < 1 || obj.teamName[tn].length > 24) return null;
+        }
+      }
       if (!isInt2(obj.moveNo, 0, 1e9)) return null;
       if (!isInt2(obj.startedAt, 0)) return null;
       if (!Array.isArray(obj.stats) || obj.stats.length !== obj.seats.length) return null;
@@ -387,9 +531,12 @@
     YARD: YARD, HOME: HOME, LAST_RING_POS: LAST_RING_POS, FIRST_LANE_POS: FIRST_LANE_POS,
     createGame: createGame,
     absCell: absCell, posToCell: posToCell, pathPositions: pathPositions,
+    isBlockedAt: isBlockedAt, isMoveBlocked: isMoveBlocked,
     legalMoves: legalMoves, applyMove: applyMove, registerRoll: registerRoll,
     endTurn: endTurn, beginsTurn: beginsTurn,
     progress: progress, rankPlayers: rankPlayers, isWin: isWin,
+    teamSeats: teamSeats, teamProgress: teamProgress, teamHomes: teamHomes,
+    teamCaptures: teamCaptures, teamIsWin: teamIsWin, teamMembersOf: teamMembersOf,
     validateState: validateState, assertMoveLegal: assertMoveLegal,
     assertInvariants: assertInvariants, setStrict: function (v) { STRICT = v; }
   };

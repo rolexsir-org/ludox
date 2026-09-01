@@ -581,7 +581,7 @@ tAsync('GRACEFUL host exit: successor adopts and the match completes for everyon
   H.advance(600);
   assert(g2.state === 'playing', 'follower rewired to the new host (state ' + g2.state + ')');
   /* continue to completion on the new host */
-  driveMigrated(w, newHost, [w.guests[1]], 6000);
+  driveMigrated(w, newHost, [w.guests[1]], 15000);
   assert(newHost.st.phase === 'over', 'migrated match finished');
   assert(newHost.st.moveNo > moveNoAtCut, 'game continued past the cut');
   const follower = w.guests[1].match;
@@ -613,7 +613,7 @@ tAsync('ABRUPT host crash: election timeout promotes the lowest surviving seat',
   newHost.begin();
   H.advance(3000);
   /* disconnected old-host seat is skipped; the successor finishes alone */
-  driveMigrated(w, newHost, [], 8000);
+  driveMigrated(w, newHost, [], 15000);
   assert(newHost.st.phase === 'over', 'successor completed the abandoned match');
   newHost.destroy(); room2.close('test-end'); w.guests.forEach((u) => { u.match && u.match.destroy(); u.guest.destroy(); });
 });
