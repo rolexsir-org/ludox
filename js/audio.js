@@ -88,10 +88,27 @@
     try { navigator.vibrate(HAPTIC[name] || 8); } catch (e) {}
   }
 
+  /* sfx volume control (0..1), applied to master gain */
+  var sfxVolume = 0.8;
+  function setVolume(v) {
+    sfxVolume = Math.max(0, Math.min(1, v));
+    if (master) master.gain.value = sfxVolume * 0.4;
+  }
+  /* make ensure() apply current volume */
+  var _origEnsure = ensure;
+  function ensure2() {
+    var c = _origEnsure();
+    if (master) master.gain.value = sfxVolume * 0.4;
+    return c;
+  }
+  // override ensure
+  ensure = ensure2;
+
   global.LudoraAudio = {
     unlock: unlock, play: play, haptic: haptic,
     setEnabled: function (v) { enabled = v; if (!v && ctx) { try { ctx.suspend(); } catch (e) {} } else if (v && ctx) { try { ctx.resume(); } catch (e) {} } },
     setHaptics: function (v) { hapticsOn = v; },
+    setVolume: setVolume,
     isEnabled: function () { return enabled; }
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = global.LudoraAudio;

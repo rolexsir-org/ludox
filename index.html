@@ -21,7 +21,7 @@
   <defs>
     <symbol id="i-back" viewBox="0 0 24 24"><path d="M14.5 5 8 12l6.5 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9.5 5 16 12l-6.5 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M4.5 7h15M4.5 12h15M4.5 17h15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1.5" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1.5" fill="currentColor"/></symbol>
     <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></symbol>
     <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8.2" r="3.6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4.8 19.5c1.3-3.4 4-5 7.2-5s5.9 1.6 7.2 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
     <symbol id="i-people" viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2.8 19.5c1.1-3 3.3-4.5 6.2-4.5s5.1 1.5 6.2 4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M15.5 5.6a3.2 3.2 0 0 1 0 5.8M17.6 15.4c1.7.7 2.9 2 3.6 4.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
@@ -62,17 +62,16 @@
   <section class="screen" id="scr-quick"></section>
   <section class="screen" id="scr-pass"></section>
   <section class="screen game" id="scr-game">
-    <header id="hud"></header>
     <div id="boardWrap">
       <div id="seatBar" role="group" aria-label="Players"></div>
       <canvas id="board" aria-label="Ludo board"></canvas>
-      <div id="offlineBadge" class="hidden" role="status"><svg class="ic"><use href="#i-cloud-off"/></svg><span>Offline — playing with local data</span></div>
+      <div id="offlineBadge" class="hidden" role="status"><svg class="ic"><use href="#i-cloud-off"/></svg><span>Offline</span></div>
       <button id="handoffBanner" class="hidden" aria-label="Pass device"></button>
     </div>
-    <div id="diceDock">
-      <div id="netChip" class="hidden" role="status" aria-label="Connection status"><span class="dot"></span><span id="netChipText">Connected</span></div>
+    <div id="gameFoot">
+      <div id="netChip" class="hidden" role="status" aria-label="Connection status"><span class="dot on"></span><span id="netChipText">Connected</span></div>
       <div id="turnChip"></div>
-      <button id="pauseBtn" aria-label="Pause menu"><svg class="ic"><use href="#i-pause"/></svg></button>
+      <button id="pauseBtn" aria-label="Menu"><svg class="ic"><use href="#i-pause"/></svg></button>
     </div>
     <div id="achHost" aria-live="polite"></div>
     <div id="handoffOverlay" class="overlay hidden"></div>

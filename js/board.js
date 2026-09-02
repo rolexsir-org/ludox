@@ -49,8 +49,9 @@
      Standalone (desktop/tablet) vs compact (narrow phones) so the board stays the hero. */
   function podLanes() {
     var iw = (typeof global === 'object' && typeof global.innerWidth === 'number') ? global.innerWidth : 420;
-    var compact = iw < 560;
-    return { x: compact ? 78 : 104, y: compact ? 96 : 120 };
+    var compact = iw < 480;
+    /* pod width: 96px (desktop) or 78px (compact) + 10px gap each side */
+    return { x: compact ? 90 : 110, y: compact ? 106 : 126 };
   }
   function yardDocks(m, colorIdx) {
     var reg = YARD_REGIONS[colorIdx];

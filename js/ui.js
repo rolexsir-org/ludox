@@ -367,29 +367,15 @@
   function updateTurnChip(st) {
     var chip = $('turnChip'); if (!chip || !st) return;
     var seat = st.turn, s = st.seats[seat];
-    chip.innerHTML = avatarHTML(s.avatar != null ? s.avatar : seat, 30) +
+    var stateText = s.kind === 'ai' ? 'Thinking…' : (st.phase === 'move' ? 'Choose a pawn' : 'Tap to roll');
+    chip.innerHTML = avatarHTML(s.avatar != null ? s.avatar : seat, 28) +
       '<div class="grow"><div class="t">' + esc(s.name || ('Player ' + (seat + 1))) + '</div>' +
-      '<div class="s">' + (s.kind === 'ai' ? 'Thinking…' : (st.phase === 'move' ? 'Choose a move' : 'Roll to begin')) + '</div></div>';
+      '<div class="s">' + stateText + '</div></div>';
   }
 
+  /* updateHud: updates seat pods and the foot turn chip (no top pills bar) */
   function updateHud(d) {
     var g = activeMatch; if (!g) return;
-    var hud = $('hud'); if (!hud) return;
-    var st = g.st, img = '';
-    for (var i = 0; i < st.seats.length; i++) {
-      var s = st.seats[i];
-      var homes = 0;
-      for (var t = 0; t < 4; t++) if (st.tokens[i][t] === E.HOME) homes++;
-      var active = st.turn === i;
-      img += '<div class="pill' + (active ? ' active' : '') + '" style="color:' + colorCss(s.color) + '" role="button" aria-label="' + esc(s.name) + '">' +
-        avatarHTML(s.avatar != null ? s.avatar : i, 30) +
-        '<div class="meta"><div class="name">' + esc(s.name) + '</div>' +
-        '<div class="sub"><span class="caps"><svg class="ic"><use href="#i-crown"/></svg>' + st.stats[i].homes + '</span>' +
-        '<span class="homes">' + [0,1,2,3].map(function (t2) { return '<i class="' + (t2 < homes ? 'on' : '') + '"></i>'; }).join('') + '</span>' +
-        (active && (d && d.thinking) ? '<span class="thinking"></span>' : '') + '</div></div>' +
-        '<span class="bar" style="background:currentColor"></span></div>';
-    }
-    hud.innerHTML = img;
     if (g.st) syncSeatPods(g.st, d);
   }
 
@@ -398,15 +384,17 @@
     var st = g.st, turn = st.turn, ref = podEls[turn];
     if (ref) {
       if (d && (d.state === 'rolling' || d.state === 'done')) {
-        lastPodValue[turn] = d.value;
-        setPips(ref.cube, d.value);
+        lastPodValue[turn] = d.value || lastPodValue[turn] || 1;
+        setPips(ref.cube, lastPodValue[turn]);
       }
       ref.cube.classList.toggle('rolling', !!(d && d.state === 'rolling'));
+      /* canInteract: only in roll phase, only the active human local seat */
       var canInteract = !!(st.phase === 'roll' && st.seats[turn].kind === 'human' && g.isLocalSeat(turn) &&
-        d && (d.state === 'ready' || d.state === 'done'));
+        (!d || d.state === 'ready' || d.state === 'done'));
       ref.dice.disabled = !canInteract;
       ref.dice.classList.toggle('busy', !!(d && d.state === 'rolling'));
-      ref.hint.classList.toggle('show', !!(d && (d.state === 'ready' || d.state === 'done')));
+      /* hint shows only when the player CAN roll */
+      ref.hint.classList.toggle('show', canInteract && st.phase === 'roll');
     }
     syncSeatPods(st, d);
   }
@@ -922,6 +910,8 @@
     var scr = $('scr-settings'); if (!scr) return;
     var prof = getProfile();
     var s = prof.settings;
+    if (s.sfxVol == null) s.sfxVol = 0.8;
+    if (s.musicVol == null) s.musicVol = 0.4;
     var themes = [{ v: 'dark', n: 'Dark' }, { v: 'light', n: 'Light' }, { v: 'auto', n: 'Auto' }];
     var layouts = [{ v: 'phone', n: 'Phone' }, { v: 'tablet', n: 'Tablet' }, { v: 'desktop', n: 'Desktop' }, { v: 'auto', n: 'Auto' }];
     scr.innerHTML =
@@ -931,10 +921,14 @@
       themes.map(function (t) { return '<button data-v="' + t.v + '" class="' + (s.theme === t.v ? 'on' : '') + '">' + t.n + '</button>'; }).join('') + '</div>' +
       '<div class="label">Layout</div><div class="seg" id="setLayout" style="--n:4">' +
       layouts.map(function (l) { return '<button data-v="' + l.v + '" class="' + ((s.layout || 'auto') === l.v ? 'on' : '') + '">' + l.n + '</button>'; }).join('') + '</div>' +
-      '<div class="label">Sound</div><div class="list"><button class="list-row" id="optSound"><span class="t grow">Sound effects</span>' +
-      '<span class="toggle' + (s.sound ? ' on' : '') + '" id="togSound"></span></button>' +
-      '<div class="label">Haptics</div><button class="list-row" id="optHaptics"><span class="t grow">Vibration</span>' +
-      '<span class="toggle' + (s.haptics ? ' on' : '') + '" id="togHaptics"></span></button></div>' +
+      '<div class="label">Audio</div><div class="list">' +
+      '<button class="list-row" id="optSound"><div class="tile t-gray" style="margin-right:4px"><svg class="ic ic-sm"><use href="#i-sound"/></svg></div><span class="t grow">Sound effects</span>' +
+      '<span class="toggle' + (s.sound !== false ? ' on' : '') + '" id="togSound"></span></button>' +
+      '<div class="list-row"><div class="tile t-gray" style="margin-right:4px"><svg class="ic ic-sm"><use href="#i-sound"/></svg></div><span class="t grow">SFX volume</span>' +
+      '<div class="settings-range"><input type="range" id="sfxVol" min="0" max="1" step="0.05" value="' + (s.sfxVol || 0.8) + '">' +
+      '<span class="val" id="sfxVolVal">' + Math.round((s.sfxVol || 0.8) * 100) + '</span></div></div>' +
+      '<button class="list-row" id="optHaptics"><div class="tile t-gray" style="margin-right:4px"><svg class="ic ic-sm"><use href="#i-buzz"/></svg></div><span class="t grow">Vibration</span>' +
+      '<span class="toggle' + (s.haptics !== false ? ' on' : '') + '" id="togHaptics"></span></button></div>' +
       '<div style="flex:1"></div>';
     $('sBack').onclick = function () { back(); };
     $$('#setTheme button', scr).forEach(function (b) {
@@ -952,9 +946,19 @@
       };
     });
     var togSound = $('togSound');
-    if (togSound) togSound.onclick = function () { s.sound = !s.sound; togSound.classList.toggle('on', s.sound); saveProfile(); Audio2.setEnabled(s.sound); };
+    if (togSound) togSound.onclick = function () {
+      s.sound = !(s.sound !== false); togSound.classList.toggle('on', s.sound !== false);
+      saveProfile(); Audio2.setEnabled(s.sound !== false);
+    };
+    var sfxSlider = $('sfxVol');
+    if (sfxSlider) sfxSlider.addEventListener('input', function () {
+      s.sfxVol = parseFloat(sfxSlider.value);
+      var vv = $('sfxVolVal'); if (vv) vv.textContent = Math.round(s.sfxVol * 100);
+      if (Audio2.setVolume) Audio2.setVolume(s.sfxVol);
+      saveProfile();
+    });
     var togH = $('togHaptics');
-    if (togH) togH.onclick = function () { s.haptics = !s.haptics; togH.classList.toggle('on', s.haptics); saveProfile(); Audio2.setHaptics(s.haptics); };
+    if (togH) togH.onclick = function () { s.haptics = !(s.haptics !== false); togH.classList.toggle('on', s.haptics !== false); saveProfile(); Audio2.setHaptics(s.haptics !== false); };
   }
 
   /* ========================= multiplayer ========================= */
