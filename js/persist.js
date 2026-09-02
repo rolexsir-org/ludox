@@ -91,12 +91,6 @@
   function bak2Key(key) { return PREFIX + key + '~bak2'; }
 
   /* ---------- migration + validation chain ---------- */
-  function migrate(data, fromVersion) {
-    var r = registry[data && data._regKey ? data._regKey : null];
-    // caller passes the key explicitly via applyKey below
-    return data;
-  }
-
   function processData(key, obj) {
     var r = registry[key];
     if (!r) return obj;

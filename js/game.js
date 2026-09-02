@@ -84,6 +84,23 @@
     this.canvas.addEventListener('click', downFn, { passive: true });
     this.canvas.addEventListener('pointerdown', downFn, { passive: true });
     this.canvas.addEventListener('touchstart', touchFn, { passive: false });
+    var keyFn = function (ev) {
+      if (self.destroyed || !self.running) return;
+      var target = ev.target;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
+      if (ev.key >= '1' && ev.key <= '4') {
+        self.diceForSelection(+ev.key);
+      } else if (ev.key === ' ' || ev.key === 'Enter') {
+        if (self.st && self.st.phase === 'roll') {
+          ev.preventDefault();
+          self.rollRequest();
+        }
+      }
+    };
+    this._keyHandler = keyFn;
+    if (typeof window !== 'undefined' && window.addEventListener) {
+      window.addEventListener('keydown', keyFn);
+    }
   };
 
   Match.prototype.observeBoard = function () {
@@ -530,7 +547,7 @@
     var p = Board.pointForPos(this.m, color, pos, token, ho);
     return { x: p.x, y: p.y + this.m.cell * 0.16 };
   };
-  Match.prototype.tokenPoint = function (seat, token, posOverride, isFrom) {
+  Match.prototype.tokenPoint = function (seat, token, posOverride) {
     var pos = posOverride != null ? posOverride : this.st.tokens[seat][token];
     return this.posPoint(seat, token, pos);
   };
@@ -941,6 +958,10 @@
     this.running = false;
     this.clearTimers();
     cancelAnimationFrame(this.raf);
+    if (this._keyHandler && typeof window !== 'undefined' && window.removeEventListener) {
+      try { window.removeEventListener('keydown', this._keyHandler); } catch (e) {}
+      this._keyHandler = null;
+    }
     if (this.ro) { try { this.ro.disconnect(); } catch (e) {} this.ro = null; }
     if (this.canvas) {
       try { if (this.canvas._ludoraDown) { this.canvas.removeEventListener('click', this.canvas._ludoraDown); this.canvas.removeEventListener('pointerdown', this.canvas._ludoraDown); this.canvas._ludoraDown = null; } } catch (e) {}

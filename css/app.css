@@ -807,6 +807,35 @@ input, textarea { font: inherit; user-select: text; -webkit-user-select: text; }
 .hist-row .res { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; flex: none; background: var(--bg-cell); color: var(--text-3); }
 .hist-row .res.w { background: rgba(34,197,94,0.12); color: #5CC98A; }
 .hist-row .res.l { background: rgba(239,68,68,0.10); color: #E47B78; }
+.hist-row .res.p { background: rgba(139,143,163,0.12); color: #8B8FA3; }
+.cosm-tile .cosm-sub { font-size: 9px; color: var(--text-3); font-weight: 500; }
+.cosm-tile.locked { opacity: 0.55; cursor: pointer; }
+.cosm-tile .ic { width: 14px; height: 14px; }
+.avatar-picker { display: flex; gap: 8px; flex-wrap: wrap; padding: 6px 0; }
+.avatar-opt {
+  border-radius: 12px; padding: 2px; border: 2px solid transparent;
+  transition: transform 0.14s var(--spring), border-color 0.14s; cursor: pointer;
+}
+.avatar-opt:active { transform: scale(0.92); }
+.avatar-opt.on { border-color: rgba(255,255,255,0.7); transform: scale(1.08); }
+.prof-edit-box {
+  background: var(--glass-bg-2); border: 1px solid var(--glass-border-2);
+  border-radius: var(--r-md); padding: 14px; margin: 12px 0 6px;
+  display: flex; flex-direction: column; gap: 10px;
+  animation: cardIn 0.22s var(--ease) both;
+}
+.qr-overlay {
+  position: fixed; inset: 0; z-index: 90;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(4, 4, 8, 0.72); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  padding: 20px; animation: fadeIn 0.18s ease both;
+}
+.qr-modal {
+  background: var(--glass-bg-2); border: 1px solid var(--glass-border-2);
+  border-radius: var(--r-xl); padding: 20px; max-width: 320px; width: 100%;
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  box-shadow: var(--glass-shadow); animation: cardIn 0.24s var(--ease) both;
+}
 
 /* ---------- Settings ---------- */
 .settings-range { display: flex; align-items: center; gap: 10px; }
@@ -1106,7 +1135,7 @@ html[data-view="desktop"] #pSeats { display: grid; grid-template-columns: 1fr 1f
   .seat-pod .sp-roll   { width: 40px; height: 40px; border-radius: 12px; }
   .seat-pod .sp-cube   { width: 24px; height: 24px; padding: 4px; }
   .seat-pod .sp-hint   { bottom: -4px; font-size: 7px; }
-  #gameBar { margin: 2px 8px calc(var(--sab) + 4px); padding: 5px 8px 5px 11px; min-height: 42px; }
+  #gameFoot { margin: 2px 8px calc(var(--sab) + 4px); padding: 5px 8px 5px 11px; min-height: 42px; }
 }
 
 /* Landscape phones: tighten everything vertically */
@@ -1116,13 +1145,13 @@ html[data-view="desktop"] #pSeats { display: grid; grid-template-columns: 1fr 1f
   .seat-pod .sp-dice { height: 38px; }
   .seat-pod .sp-roll { width: 38px; height: 38px; }
   .seat-pod .sp-cube { width: 24px; height: 24px; }
-  #gameBar { margin: 2px 8px calc(var(--sab) + 4px); min-height: 42px; }
+  #gameFoot { margin: 2px 8px calc(var(--sab) + 4px); min-height: 42px; }
 }
 
 /* ========== DESKTOP ========== */
 html[data-view="desktop"] #scr-game { flex-direction: row; }
 html[data-view="desktop"] #boardWrap { padding: 8px 16px; }
-html[data-view="desktop"] #gameBar {
+html[data-view="desktop"] #gameFoot {
   flex-direction: column; width: 130px; flex: none; min-height: 0;
   margin: 10px 12px 10px 6px;
   padding: 14px 10px;

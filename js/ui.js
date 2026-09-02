@@ -31,7 +31,7 @@
   var passState = { count: 2, colors: [0, 1, 2, 3], names: ['Player 1', 'Player 2', 'Player 3', 'Player 4'], avatars: [0,1,2,3], team: false, teamNames: ['Team A', 'Team B'] };
   var quickState = { aiName: 'Aria', aiLevel: 1, color: 0 };
   var dailyState = null;
-  var overlayOpen = false;
+  var editProfileOpen = false;
 
   /* ========================= helpers ========================= */
   function $(id) { return document.getElementById(id); }
@@ -57,7 +57,6 @@
     return '<span class="avatar" style="background:' + c + ';width:' + (size||32) + 'px;height:' + (size||32) + 'px;font-size:' + Math.round((size||32)*0.42) + 'px">' + g + '</span>';
   }
   function colorCss(c) { return 'rgb(' + COLORS[c][0] + ',' + COLORS[c][1] + ',' + COLORS[c][2] + ')'; }
-  function colorLight(c) { var p = COLORS[c]; return 'rgb(' + Math.min(255,p[0]+90) + ',' + Math.min(255,p[1]+90) + ',' + Math.min(255,p[2]+90) + ')'; }
 
   /* ========================= toasts ========================= */
   function toast(msg, kind, icon) {
@@ -153,7 +152,11 @@
   function back() {
     // if a modal sheet is open, close it instead of navigating
     var menu = $('pauseMenu');
-    if (menu && !menu.classList.contains('hidden')) { menu.classList.add('hidden'); overlayOpen = false; return; }
+    if (menu && !menu.classList.contains('hidden')) { menu.classList.add('hidden'); return; }
+    var qrOv = $('qrModalOv');
+    if (qrOv) { qrOv.remove(); return; }
+    var dataOv = $('dataModalOv');
+    if (dataOv) { dataOv.remove(); return; }
     if (nav.stack.length > 1) {
       nav.stack.pop();
       var prev = nav.stack[nav.stack.length - 1];
@@ -204,16 +207,13 @@
     var dx = t.clientX - swipeStart.x, dy = t.clientY - swipeStart.y;
     swipeStart = null;
     var menu = $('pauseMenu');
-    if (menu && !menu.classList.contains('hidden')) { menu.classList.add('hidden'); overlayOpen = false; return; }
+    if (menu && !menu.classList.contains('hidden')) { menu.classList.add('hidden'); return; }
     if (dx > 60 && Math.abs(dy) < 40) back();
   }
 
   /* ========================= match wiring ========================= */
   /* Build the four player control pods (one per seat) with their own die,
      identity, turn state and homes tracker. Kept in sync with engine state. */
-  /* Flat pip die (one face, 9 pips). The heavy six-face CSS cube adds ~216
-     DOM nodes in a 4-player game; a single face is equivalent for the player
-     and lets the browser composite with far less work. */
   var PIP_ON = { 1:[4], 2:[2,6], 3:[2,4,6], 4:[1,3,7,9], 5:[1,3,5,7,9], 6:[1,3,4,6,7,9] };
   var PIP_GRID = '<i class="pip"></i><i class="pip"></i><i class="pip"></i><i class="pip"></i><i class="pip"></i>' +
                  '<i class="pip"></i><i class="pip"></i><i class="pip"></i><i class="pip"></i>';
@@ -255,8 +255,6 @@
         sub: pod.querySelector('.sp-sub'),
         team: pod.querySelector('.sp-team'),
         status: pod.querySelector('.sp-sub'),   /* reuse sub for status text */
-        statusRoot: null,
-        dot: null,
         homes: pod.querySelector('.sp-homes'),
         dice: pod.querySelector('.sp-roll'),
         cube: pod.querySelector('.sp-cube'),
@@ -292,9 +290,6 @@
     if (online) return { cls: 'status-waiting', text: g.isLocalSeat(i) ? 'Your turn' : 'Waiting' };
     return { cls: 'status-waiting', text: 'Waiting' };
   }
-  /* Set the four-side lane sizes on the board wrapper so the grid reserves a
-     gutter for each occupied side (left/right/top/bottom) and the board keeps
-     the centre. Mirrors the lane math the controller uses to size the canvas. */
   function layoutSeatPods(st) {
     var wrap = $('boardWrap'); if (!wrap || !st) return;
     var Lane = (Board && Board.podLanes) ? Board.podLanes() : { x: 104, y: 120 };
@@ -589,8 +584,6 @@
   /* ========================= screens ========================= */
   function renderHome() {
     var scr = $('scr-home'); if (!scr) return;
-    var prof = getProfile();
-    var lvl = Profile.levelFromXp(prof.xp).level;
     var saved = null;
     try { saved = Game.saved(); } catch (e) {}
     var continueCard = saved ? '<button class="card" id="btnContinue" style="width:100%;text-align:left">' +
@@ -644,30 +637,54 @@
 
   function renderQuick() {
     var scr = $('scr-quick'); if (!scr) return;
-    var prof = getProfile();
-    var theme = prof.cosmetics.board, diceT = prof.cosmetics.dice, tokenT = prof.cosmetics.token;
     var levels = [
       { id: 0, name: 'Easy' }, { id: 1, name: 'Medium' }, { id: 2, name: 'Hard' }
     ];
-    var lineup = '<div class="ai-lineup" id="qLineup"><div class="ch">' + avatarHTML(0, 36) +
+    var lineup = '<div class="ai-lineup" id="qLineup" style="cursor:pointer" title="Tap to change opponent"><div class="ch">' + avatarHTML(0, 36) +
       '<span>' + esc(quickState.aiName) + '</span><span class="lvl">' + levels[quickState.aiLevel].name + '</span></div></div>';
+
+    var colorDots = '';
+    for (var c = 0; c < 4; c++) {
+      var on = quickState.color === c;
+      colorDots += '<button class="color-dot' + (on ? ' on' : '') + '" data-c="' + c + '" style="background:' + colorCss(c) + '" aria-label="' + PLAYER_NAMES[c] + '"></button>';
+    }
+
     scr.innerHTML =
       '<div class="nav"><button class="navbtn" id="qBack"><svg class="ic"><use href="#i-back"/></svg></button>' +
       '<div class="title">Quick Match</div></div>' +
-      '<div class="setup setup-body"><div class="label">Opponent</div>' + lineup +
+      '<div class="setup setup-body"><div class="label">Opponent (tap to cycle)</div>' + lineup +
+      '<div class="label">Your Color</div>' +
+      '<div class="color-row" id="qColors">' + colorDots + '</div>' +
       '<div class="label">Difficulty</div>' +
-      '<div class="seg" id="qLevel" style="--n:3">' + levels.map(function (l, i) {
+      '<div class="seg" id="qLevel" style="--n:3">' + levels.map(function (l) {
         return '<button data-v="' + l.id + '" class="' + (l.id === quickState.aiLevel ? 'on' : '') + '">' + l.name + '</button>';
       }).join('') + '</div>' +
       '<div class="diff-desc" id="qDiff">' + descFor(quickState.aiLevel) + '</div>' +
       '</div><div style="flex:1"></div>' +
       '<button class="btn btn-primary" id="qStart"><svg class="ic"><use href="#i-play"/></svg> Start game</button>';
     $('qBack').onclick = function () { back(); };
+    var ql = $('qLineup');
+    if (ql) {
+      ql.onclick = function () {
+        var names = (AI && AI.names) || ['Aria', 'Rohan', 'Mila', 'Kabir', 'Zara', 'Dev', 'Nina', 'Arjun', 'Tara', 'Vikram'];
+        var curIdx = names.indexOf(quickState.aiName);
+        quickState.aiName = names[(curIdx + 1) % names.length];
+        renderQuick();
+      };
+    }
+    $$('#qColors button', scr).forEach(function (b) {
+      b.onclick = function () {
+        quickState.color = +b.dataset.c;
+        $$('#qColors button', scr).forEach(function (x) { x.classList.toggle('on', x === b); });
+      };
+    });
     $$('#qLevel button', scr).forEach(function (b) {
       b.onclick = function () {
         quickState.aiLevel = +b.dataset.v;
         $$('#qLevel button', scr).forEach(function (x) { x.classList.toggle('on', x === b); });
         $('qDiff').textContent = descFor(quickState.aiLevel);
+        var lvlEl = scr.querySelector('#qLineup .lvl');
+        if (lvlEl) lvlEl.textContent = levels[quickState.aiLevel].name;
       };
     });
     $('qStart').onclick = function () { startQuickMatch(); };
@@ -679,11 +696,12 @@
   }
   function startQuickMatch() {
     var prof = getProfile();
+    var oppColor = (quickState.color + 2) % 4; // opposite board side
     var cfg = {
       mode: 'quick',
       seats: [
         { color: quickState.color, kind: 'human', name: 'You', avatar: prof.avatar },
-        { color: 2, kind: 'ai', name: quickState.aiName, ai: quickState.aiLevel }
+        { color: oppColor, kind: 'ai', name: quickState.aiName, ai: quickState.aiLevel }
       ],
       rules: {},
       theme: prof.cosmetics.board, dice: prof.cosmetics.dice, tokenShape: prof.cosmetics.token,
@@ -694,12 +712,12 @@
 
   function renderPass() {
     var scr = $('scr-pass'); if (!scr) return;
-    var levels = [1, 2, 3, 4];
+    var counts = [2, 3, 4];
     scr.innerHTML =
       '<div class="nav"><button class="navbtn" id="pBack"><svg class="ic"><use href="#i-back"/></svg></button>' +
       '<div class="title">Pass & Play</div></div>' +
       '<div class="setup setup-body"><div class="label">Players</div>' +
-      '<div class="seg" id="pCount" style="--n:4">' + levels.map(function (n) {
+      '<div class="seg" id="pCount" style="--n:3">' + counts.map(function (n) {
         return '<button data-n="' + n + '" class="' + (n === passState.count ? 'on' : '') + '">' + n + '</button>';
       }).join('') + '</div>' +
       '<div class="label">Mode</div>' +
@@ -776,7 +794,6 @@
     var host = $('pSeats'); if (!host) return;
     var html = '';
     for (var i = 0; i < passState.count; i++) {
-      var c = passState.colors[i];
       var swatches = '';
       for (var ci = 0; ci < 4; ci++) {
         var on = passState.colors[i] === ci;
@@ -848,7 +865,7 @@
       '<div class="title">Daily</div></div>' +
       '<div class="daily-card"><div class="type">' + esc(daily.type) + '</div><h2>' + esc(daily.name) + '</h2>' +
       '<p class="desc">' + esc(daily.desc) + '</p>' +
-      '<div class="reward"><svg class="ic"><use href="#i-gold"/></svg> Earn bonus XP</div></div>' +
+      '<div class="reward"><svg class="ic"><use href="#i-star"/></svg> Earn bonus XP</div></div>' +
       '<div class="label">Streak</div><div class="streak-strip">' + cells + '</div>' +
       '<div style="flex:1"></div>' +
       '<button class="btn btn-primary" id="dPlay"' + (doneToday ? ' disabled' : '') + '>' +
@@ -874,11 +891,13 @@
     scr.innerHTML =
       '<div class="nav"><button class="navbtn" id="rBack"><svg class="ic"><use href="#i-back"/></svg></button>' +
       '<div class="title">Rules</div></div>' +
-      '<div class="rule"><div class="t">Goal</div><div class="d">Get all four tokens home first, or reach the capture target.</div></div>' +
-      '<div class="rule"><div class="t">Roll</div><div class="d">Roll a six to release a token from the yard. A six grants an extra roll.</div></div>' +
-      '<div class="rule"><div class="t">Capture</div><div class="d">Land on an opponent to send it back to its yard. Safe stars protect you.</div></div>' +
-      '<div class="rule"><div class="t">Three sixes</div><div class="d">Three consecutive sixes forfeit the turn.</div></div>' +
-      '<div class="rule"><div class="t">Lane</div><div class="d">Once in the home lane a token can never be captured.</div></div>';
+      '<div class="rule"><div class="t">Goal</div><div class="d">Navigate all 4 pawns around the board and into your home triangle first.</div></div>' +
+      '<div class="rule"><div class="t">Rolling &amp; Releasing</div><div class="d">Roll a six to release a pawn from your yard onto your start cell. Rolling a six grants an extra roll.</div></div>' +
+      '<div class="rule"><div class="t">Captures &amp; Extra Turns</div><div class="d">Landing on an opponent\'s pawn captures it and sends it back to its yard. Capturing grants you an extra roll!</div></div>' +
+      '<div class="rule"><div class="t">Safe Stars &amp; Blocks</div><div class="d">Star cells and start cells are safe havens where pawns cannot be captured. Two pawns of the same color on a cell form a block that opponents cannot pass or land on.</div></div>' +
+      '<div class="rule"><div class="t">Three Consecutive Sixes</div><div class="d">Rolling three sixes in a row forfeits your turn immediately.</div></div>' +
+      '<div class="rule"><div class="t">Home Lane</div><div class="d">Pawns in the home lane are safe forever from captures. Reaching home requires an exact roll count.</div></div>' +
+      '<div class="rule"><div class="t">Team-Up Mode</div><div class="d">In 4-player Team Up, diagonal partners share home targets and block advantages to win together.</div></div>';
     $('rBack').onclick = function () { back(); };
   }
 
@@ -886,33 +905,157 @@
     var scr = $('scr-profile'); if (!scr) return;
     var prof = getProfile();
     var lvl = Profile.levelFromXp(prof.xp).level;
+
+    /* Avatar options for profile editor */
+    var avOptions = '';
+    for (var a = 0; a < 8; a++) {
+      var isCurAv = (prof.avatar || 0) === a;
+      avOptions += '<button class="avatar-opt' + (isCurAv ? ' on' : '') + '" data-av="' + a + '">' + avatarHTML(a, 36) + '</button>';
+    }
+
+    var editBox = '<div class="prof-edit-box' + (editProfileOpen ? '' : ' hidden') + '" id="prEditBox">' +
+      '<div class="label" style="margin-top:0">Edit Profile</div>' +
+      '<input class="mp-text" id="prNameInput" maxlength="20" value="' + esc(prof.name) + '" placeholder="Player name">' +
+      '<div class="label">Choose Avatar</div>' +
+      '<div class="avatar-picker" id="prAvPicker">' + avOptions + '</div>' +
+      '<div class="row" style="gap:8px;margin-top:4px">' +
+      '<button class="btn btn-primary" id="prSaveEdit" style="height:40px;flex:1"><svg class="ic"><use href="#i-check"/></svg> Save</button>' +
+      '<button class="btn btn-tint" id="prCancelEdit" style="height:40px;flex:1">Cancel</button></div>' +
+      '</div>';
+
+    /* Board cosmetics */
+    var boardTiles = Profile.COSMETICS.boards.map(function (b) {
+      var unlocked = Profile.isUnlocked(b, prof);
+      var on = prof.cosmetics.board === b.theme;
+      return '<button class="cosm-tile' + (on ? ' on' : '') + (unlocked ? '' : ' locked') + '" data-type="board" data-v="' + b.theme + '" data-req="' + b.level + '">' +
+        '<span>' + esc(b.name) + '</span>' +
+        '<span class="cosm-sub">' + (on ? 'Active' : (unlocked ? 'Unlocked' : 'Lvl ' + b.level)) + '</span>' +
+        (unlocked ? '' : '<svg class="ic ic-sm" style="opacity:0.5"><use href="#i-lock"/></svg>') +
+        '</button>';
+    }).join('');
+
+    /* Dice cosmetics */
+    var diceTiles = Profile.COSMETICS.dice.map(function (d) {
+      var unlocked = Profile.isUnlocked(d, prof);
+      var on = prof.cosmetics.dice === d.theme;
+      return '<button class="cosm-tile' + (on ? ' on' : '') + (unlocked ? '' : ' locked') + '" data-type="dice" data-v="' + d.theme + '" data-req="' + d.level + '">' +
+        '<span>' + esc(d.name) + '</span>' +
+        '<span class="cosm-sub">' + (on ? 'Active' : (unlocked ? 'Unlocked' : 'Lvl ' + d.level)) + '</span>' +
+        (unlocked ? '' : '<svg class="ic ic-sm" style="opacity:0.5"><use href="#i-lock"/></svg>') +
+        '</button>';
+    }).join('');
+
+    /* Token cosmetics */
+    var tokenTiles = Profile.COSMETICS.tokens.map(function (t) {
+      var unlocked = Profile.isUnlocked(t, prof);
+      var on = prof.cosmetics.token === t.theme;
+      return '<button class="cosm-tile' + (on ? ' on' : '') + (unlocked ? '' : ' locked') + '" data-type="token" data-v="' + t.theme + '" data-req="' + t.level + '">' +
+        '<span>' + esc(t.name) + '</span>' +
+        '<span class="cosm-sub">' + (on ? 'Active' : (unlocked ? 'Unlocked' : 'Lvl ' + t.level)) + '</span>' +
+        (unlocked ? '' : '<svg class="ic ic-sm" style="opacity:0.5"><use href="#i-lock"/></svg>') +
+        '</button>';
+    }).join('');
+
+    /* Achievements */
+    var achCards = Object.keys(Profile.ACHIEVEMENTS).map(function (id) {
+      var meta = Profile.ACHIEVEMENTS[id];
+      var un = !!(prof.achievements && prof.achievements[id]);
+      return '<div class="ach-card' + (un ? ' unlocked' : '') + '">' +
+        '<div class="ach-icon-s"><svg class="ic"><use href="#' + (un ? 'i-star' : 'i-lock') + '"/></svg></div>' +
+        '<div class="grow"><div class="ach-n">' + esc(meta.name) + '</div><div class="ach-d">' + esc(meta.desc) + '</div></div></div>';
+    }).join('');
+
     scr.innerHTML =
       '<div class="nav"><button class="navbtn" id="prBack"><svg class="ic"><use href="#i-back"/></svg></button>' +
       '<div class="title">Profile</div></div>' +
-      '<div class="prof-head"><div class="lvl-ring"><svg viewBox="0 0 68 68"><circle cx="34" cy="34" r="28" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="4"/>' +
+      '<div class="prof-head">' +
+      '<div class="lvl-ring"><svg viewBox="0 0 68 68"><circle cx="34" cy="34" r="28" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="4"/>' +
       '<circle cx="34" cy="34" r="28" fill="none" stroke="#EDEDF0" stroke-width="4" stroke-dasharray="176" stroke-dashoffset="' + (176 * (1 - (prof.xp % 100) / 100)) + '"/></svg><span class="n">' + lvl + '</span></div>' +
-      '<div><div class="prof-name">' + esc(prof.name) + '</div>' +
-      '<div class="prof-sub">' + prof.xp + ' XP</div></div></div>' +
+      avatarHTML(prof.avatar || 0, 52) +
+      '<div class="grow"><div class="prof-name">' + esc(prof.name) + ' <button class="avbtn" id="prEditBtn" aria-label="Edit Profile" style="padding:4px"><svg class="ic ic-sm"><use href="#i-edit"/></svg></button></div>' +
+      '<div class="prof-sub">Level ' + lvl + ' · ' + prof.xp + ' XP</div></div></div>' +
+      editBox +
       '<div class="label">Statistics</div>' +
       '<div class="stat-grid">' +
-      statCell(prof.stats.matches, 'Matches') + statCell(prof.stats.wins, 'Wins') + statCell(prof.stats.bestStreak, 'Best Streak') +
-      statCell(prof.stats.captures, 'Captures') + statCell(prof.stats.sixes, 'Sixes') + statCell(prof.stats.homes, 'Home') +
+      statCell(prof.stats.matches, 'Matches') + statCell(prof.stats.wins, 'Wins') + statCell(prof.stats.losses || 0, 'Losses') +
+      statCell(prof.stats.bestStreak, 'Best Streak') + statCell(prof.stats.captures, 'Captures') + statCell(prof.stats.sixes, 'Sixes') +
+      statCell(prof.stats.homes, 'Home') + statCell(prof.stats.onlineMatches || 0, 'Online') + statCell(prof.stats.onlineWins || 0, 'Online Wins') +
       '</div>' +
-      '<div class="label">Recent</div>' +
+      '<div class="label">Board Themes</div><div class="cosm-grid" id="prBoards">' + boardTiles + '</div>' +
+      '<div class="label">Dice Styles</div><div class="cosm-grid" id="prDice">' + diceTiles + '</div>' +
+      '<div class="label">Token Shapes</div><div class="cosm-grid" id="prTokens">' + tokenTiles + '</div>' +
+      '<div class="label">Achievements</div><div class="ach-grid">' + achCards + '</div>' +
+      '<div class="label">Recent Matches</div>' +
       (prof.history.length ? historyHTML(prof.history) : '<div class="mp-note">No matches yet.</div>');
+
     $('prBack').onclick = function () { back(); };
+    var editBtn = $('prEditBtn');
+    if (editBtn) {
+      editBtn.onclick = function () {
+        editProfileOpen = !editProfileOpen;
+        renderProfile();
+      };
+    }
+
+    var selAv = prof.avatar || 0;
+    $$('#prAvPicker .avatar-opt', scr).forEach(function (b) {
+      b.onclick = function () {
+        selAv = +b.dataset.av;
+        $$('#prAvPicker .avatar-opt', scr).forEach(function (x) { x.classList.toggle('on', x === b); });
+      };
+    });
+
+    var saveBtn = $('prSaveEdit');
+    if (saveBtn) {
+      saveBtn.onclick = function () {
+        var inp = $('prNameInput');
+        var newNm = (inp ? inp.value : '').trim();
+        if (newNm.length < 1) newNm = 'Player';
+        prof.name = newNm;
+        prof.avatar = selAv;
+        saveProfile();
+        editProfileOpen = false;
+        toast('Profile updated', 'good', 'check');
+        renderProfile();
+      };
+    }
+    var cancelBtn = $('prCancelEdit');
+    if (cancelBtn) {
+      cancelBtn.onclick = function () {
+        editProfileOpen = false;
+        renderProfile();
+      };
+    }
+
+    /* Cosmetics click handlers */
+    $$('#prBoards .cosm-tile, #prDice .cosm-tile, #prTokens .cosm-tile', scr).forEach(function (tile) {
+      tile.onclick = function () {
+        var type = tile.dataset.type, val = tile.dataset.v, req = +tile.dataset.req;
+        if (lvl < req) {
+          toast('Unlocks at Level ' + req, 'info', 'lock');
+          return;
+        }
+        if (type === 'board') prof.cosmetics.board = val;
+        else if (type === 'dice') prof.cosmetics.dice = val;
+        else if (type === 'token') prof.cosmetics.token = val;
+        saveProfile();
+        toast('Cosmetic applied', 'good', 'check');
+        renderProfile();
+      };
+    });
   }
-  function statCell(v, k) { return '<div class="stat-cell"><div class="n">' + v + '</div><div class="l">' + k + '</div></div>'; }
+
+  function statCell(v, k) { return '<div class="stat-cell"><div class="v">' + v + '</div><div class="k">' + k + '</div></div>'; }
   function historyHTML(h) {
-    var colors = { w: '#22C55E', l: '#EF4444', p: '#8B8FA3' };
-    return '<div style="display:flex;flex-direction:column;gap:6px">' + h.slice(0, 8).map(function (e) {
+    return '<div class="list">' + h.slice(0, 10).map(function (e) {
       var res = e.result === 'w' ? 'w' : (e.result === 'l' ? 'l' : 'p');
       var label = e.result === 'w' ? 'Win' : (e.result === 'l' ? 'Loss' : 'Play');
       var modeText = e.mode === 'daily' ? 'Daily' : (e.mode === 'online' ? 'Online' : (e.mode === 'pass' ? 'Pass & Play' : 'Quick Match'));
-      return '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:12px;background:var(--glass-bg);border:1px solid var(--glass-border)">' +
-        '<span style="font-size:11px;font-weight:750;letter-spacing:.06em;color:' + colors[res] + '">' + label + '</span>' +
-        '<div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:640">' + esc(modeText) + '</div>' +
-        '<div style="font-size:11px;color:var(--text-2)">' + esc(e.seatNames[0] || '') + '</div></div></div>';
+      return '<div class="hist-row">' +
+        avatarHTML(e.youSeat != null ? e.youSeat : 0, 28) +
+        '<div class="t"><div style="font-weight:640">' + esc(modeText) + '</div>' +
+        '<div style="font-size:11px;color:var(--text-3)">' + esc(e.seatNames ? e.seatNames.join(' vs ') : '') + '</div></div>' +
+        '<span class="res ' + res + '">' + label + '</span></div>';
     }).join('') + '</div>';
   }
 
@@ -921,9 +1064,13 @@
     var prof = getProfile();
     var s = prof.settings;
     if (s.sfxVol == null) s.sfxVol = 0.8;
-    if (s.musicVol == null) s.musicVol = 0.4;
+    if (s.animSpeed == null) s.animSpeed = 'fast';
+    if (s.handoff == null) s.handoff = 'off';
     var themes = [{ v: 'dark', n: 'Dark' }, { v: 'light', n: 'Light' }, { v: 'auto', n: 'Auto' }];
     var layouts = [{ v: 'phone', n: 'Phone' }, { v: 'tablet', n: 'Tablet' }, { v: 'desktop', n: 'Desktop' }, { v: 'auto', n: 'Auto' }];
+    var speeds = [{ v: 'fast', n: 'Fast' }, { v: 'normal', n: 'Normal' }];
+    var handoffs = [{ v: 'off', n: 'Off' }, { v: 'quick', n: 'Quick' }, { v: 'full', n: 'Full' }];
+
     scr.innerHTML =
       '<div class="nav"><button class="navbtn" id="sBack"><svg class="ic"><use href="#i-back"/></svg></button>' +
       '<div class="title">Settings</div></div>' +
@@ -939,7 +1086,17 @@
       '<span class="val" id="sfxVolVal">' + Math.round((s.sfxVol || 0.8) * 100) + '</span></div></div>' +
       '<button class="list-row" id="optHaptics"><div class="tile t-gray" style="margin-right:4px"><svg class="ic ic-sm"><use href="#i-buzz"/></svg></div><span class="t grow">Vibration</span>' +
       '<span class="toggle' + (s.haptics !== false ? ' on' : '') + '" id="togHaptics"></span></button></div>' +
+      '<div class="label">Animation Speed</div><div class="seg" id="setAnimSpeed" style="--n:2">' +
+      speeds.map(function (sp) { return '<button data-v="' + sp.v + '" class="' + ((s.animSpeed || 'fast') === sp.v ? 'on' : '') + '">' + sp.n + '</button>'; }).join('') + '</div>' +
+      '<div class="label">Pass &amp; Play Handoff</div><div class="seg" id="setHandoff" style="--n:3">' +
+      handoffs.map(function (h) { return '<button data-v="' + h.v + '" class="' + ((s.handoff || 'off') === h.v ? 'on' : '') + '">' + h.n + '</button>'; }).join('') + '</div>' +
+      '<div class="label">Data &amp; Backup</div><div class="list">' +
+      '<button class="list-row" id="btnExportData"><div class="tile t-blue" style="margin-right:4px"><svg class="ic ic-sm"><use href="#i-download"/></svg></div><span class="t grow">Export Backup</span><svg class="ic ic-sm chev"><use href="#i-chev"/></svg></button>' +
+      '<button class="list-row" id="btnImportData"><div class="tile t-green" style="margin-right:4px"><svg class="ic ic-sm"><use href="#i-refresh"/></svg></div><span class="t grow">Import Backup</span><svg class="ic ic-sm chev"><use href="#i-chev"/></svg></button>' +
+      '<button class="list-row" id="btnResetData"><div class="tile t-red" style="margin-right:4px"><svg class="ic ic-sm"><use href="#i-trash"/></svg></div><span class="t grow" style="color:var(--danger)">Reset Profile</span><svg class="ic ic-sm chev"><use href="#i-chev"/></svg></button></div>' +
+      '<div id="dataModalHost"></div>' +
       '<div style="flex:1"></div>';
+
     $('sBack').onclick = function () { back(); };
     $$('#setTheme button', scr).forEach(function (b) {
       b.onclick = function () {
@@ -955,11 +1112,29 @@
         saveProfile(); applyView();
       };
     });
-    var togSound = $('togSound');
-    if (togSound) togSound.onclick = function () {
-      s.sound = !(s.sound !== false); togSound.classList.toggle('on', s.sound !== false);
+    $$('#setAnimSpeed button', scr).forEach(function (b) {
+      b.onclick = function () {
+        s.animSpeed = b.dataset.v;
+        $$('#setAnimSpeed button', scr).forEach(function (x) { x.classList.toggle('on', x === b); });
+        saveProfile();
+      };
+    });
+    $$('#setHandoff button', scr).forEach(function (b) {
+      b.onclick = function () {
+        s.handoff = b.dataset.v;
+        $$('#setHandoff button', scr).forEach(function (x) { x.classList.toggle('on', x === b); });
+        saveProfile();
+      };
+    });
+
+    function toggleSound() {
+      s.sound = !(s.sound !== false);
+      var ts = $('togSound'); if (ts) ts.classList.toggle('on', s.sound !== false);
       saveProfile(); Audio2.setEnabled(s.sound !== false);
-    };
+    }
+    var optSound = $('optSound');
+    if (optSound) optSound.onclick = toggleSound;
+
     var sfxSlider = $('sfxVol');
     if (sfxSlider) sfxSlider.addEventListener('input', function () {
       s.sfxVol = parseFloat(sfxSlider.value);
@@ -967,8 +1142,93 @@
       if (Audio2.setVolume) Audio2.setVolume(s.sfxVol);
       saveProfile();
     });
-    var togH = $('togHaptics');
-    if (togH) togH.onclick = function () { s.haptics = !(s.haptics !== false); togH.classList.toggle('on', s.haptics !== false); saveProfile(); Audio2.setHaptics(s.haptics !== false); };
+
+    function toggleHaptics() {
+      s.haptics = !(s.haptics !== false);
+      var th = $('togHaptics'); if (th) th.classList.toggle('on', s.haptics !== false);
+      saveProfile(); Audio2.setHaptics(s.haptics !== false);
+    }
+    var optHaptics = $('optHaptics');
+    if (optHaptics) optHaptics.onclick = toggleHaptics;
+
+    /* Data management handlers */
+    var btnExp = $('btnExportData');
+    if (btnExp) {
+      btnExp.onclick = function () {
+        try {
+          var backupStr = Persist.exportAll();
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(backupStr).then(function () {
+              toast('Backup copied to clipboard', 'good', 'check');
+            }).catch(function () {
+              showDataExportModal(backupStr);
+            });
+          } else {
+            showDataExportModal(backupStr);
+          }
+        } catch (e) {
+          toast('Export failed', 'info', 'info');
+        }
+      };
+    }
+    var btnImp = $('btnImportData');
+    if (btnImp) {
+      btnImp.onclick = function () {
+        showDataImportModal();
+      };
+    }
+    var btnReset = $('btnResetData');
+    if (btnReset) {
+      btnReset.onclick = function () {
+        if (confirm('Reset all stats, progression and settings to default?')) {
+          profile = Profile.defaultProfile();
+          saveProfile();
+          applyAppearance();
+          applyView();
+          toast('Profile reset to default', 'good', 'check');
+          renderSettings();
+        }
+      };
+    }
+  }
+
+  function showDataExportModal(raw) {
+    var host = $('dataModalHost'); if (!host) return;
+    host.innerHTML = '<div class="qr-overlay" id="dataModalOv"><div class="qr-modal">' +
+      '<div class="title" style="font-size:16px;font-weight:700">Backup Data</div>' +
+      '<textarea class="mp-input" style="height:120px" readonly>' + esc(raw) + '</textarea>' +
+      '<button class="btn btn-primary" id="dataModalClose" style="width:100%">Done</button></div></div>';
+    $('dataModalClose').onclick = function () { host.innerHTML = ''; };
+  }
+  function showDataImportModal() {
+    var host = $('dataModalHost'); if (!host) return;
+    host.innerHTML = '<div class="qr-overlay" id="dataModalOv"><div class="qr-modal">' +
+      '<div class="title" style="font-size:16px;font-weight:700">Import Backup</div>' +
+      '<textarea class="mp-input" id="importDataInput" style="height:120px" placeholder="Paste your backup JSON here..."></textarea>' +
+      '<div class="row" style="width:100%;gap:8px">' +
+      '<button class="btn btn-primary" id="importConfirmBtn" style="flex:1">Import</button>' +
+      '<button class="btn btn-tint" id="importCancelBtn" style="flex:1">Cancel</button></div></div></div>';
+    $('importCancelBtn').onclick = function () { host.innerHTML = ''; };
+    $('importConfirmBtn').onclick = function () {
+      var inp = $('importDataInput');
+      var val = inp ? inp.value.trim() : '';
+      if (!val) { toast('Please paste backup JSON', 'info', 'info'); return; }
+      try {
+        var res = Persist.importAll(val);
+        if (res && res.ok) {
+          reloadProfile();
+          applyAppearance();
+          applyView();
+          toast('Backup restored successfully', 'good', 'check');
+          host.innerHTML = '';
+          renderSettings();
+        } else {
+          toast(res && res.error ? res.error : 'Invalid backup', 'info', 'info');
+        }
+      } catch (e) {
+        toast('Import failed', 'info', 'info');
+      }
+    };
   }
 
   /* ========================= multiplayer ========================= */
@@ -1028,7 +1288,6 @@
   }
   function renderRoom() {
     var scr = $('scr-room'); if (!scr || !mpState.room) return;
-    var prof = getProfile();
     scr.innerHTML =
       '<div class="nav"><button class="navbtn" id="rBack" aria-label="Leave room"><svg class="ic"><use href="#i-back"/></svg></button>' +
       '<div class="title">Room</div></div>' +
@@ -1045,8 +1304,8 @@
     $('rCopyId').onclick = function () { copyId(); };
     $('rShareId').onclick = function () { shareId(); };
     renderRoomSeats(true);
-    var start = $('rStart');
     updateStartGate();
+    var start = $('rStart');
     if (start) start.onclick = function () { startOnlineMatch(); };
   }
 
@@ -1059,6 +1318,7 @@
     if (seat.kind === 'ai') {
       return '<div class="seat-card" id="seatCard' + i + '"><span class="role">AI</span>' + avatarHTML((seat.avatar != null ? seat.avatar : i), 38) +
         '<div class="grow"><div class="t">' + esc(seat.name || ('AI ' + (seat.seat + 1))) + '</div><div class="s">Ready</div></div>' +
+        '<button class="btn btn-tint" id="aiRemove' + i + '" style="height:32px;padding:0 10px;font-size:11px">Remove</button>' +
         '<span class="state"><span class="dot on"></span>Ready</span></div>';
     }
     if (seat.kind === 'remote' && seat.connected) {
@@ -1066,9 +1326,16 @@
         '<div class="grow"><div class="t">' + esc(seat.name || ('Seat ' + seat.seat)) + '</div><div class="s">' + (seat.ready ? 'Ready' : esc(seat.name || ('Seat ' + seat.seat)) + ' connected') + '</div></div>' +
         '<span class="state"><span class="dot on"></span>' + (seat.ready ? 'Ready' : '…') + '</span></div>';
     }
+    var inv = mpState.invite && mpState.invite[i];
+    var invBtns = inv ? '<div class="row" style="gap:6px;margin-top:2px">' +
+      '<button class="btn btn-tint" id="invCopy' + i + '" style="height:32px;padding:0 10px;font-size:11px"><svg class="ic ic-sm"><use href="#i-share"/></svg> Copy Invite</button>' +
+      '<button class="btn btn-tint" id="invQr' + i + '" style="height:32px;padding:0 10px;font-size:11px"><svg class="ic ic-sm"><use href="#i-info"/></svg> QR</button>' +
+      '<button class="btn btn-tint" id="invAi' + i + '" style="height:32px;padding:0 10px;font-size:11px"><svg class="ic ic-sm"><use href="#i-bolt"/></svg> Add AI</button>' +
+      '</div>' : '';
     /* open seat → always show a reply box so the host can paste an answer */
     return '<div class="seat-card" id="inviteBox' + i + '" style="flex-direction:column;align-items:stretch;gap:8px">' +
       '<div class="row"><span class="role">Open</span><div class="grow"><div class="t">Seat ' + (seat.seat + 1) + '</div><div class="s">Waiting for a player</div></div></div>' +
+      invBtns +
       '<textarea class="mp-input" id="invAns' + i + '" placeholder="Paste the reply code here" aria-label="Reply code"></textarea>' +
       '<button class="btn btn-tint" id="invAccept' + i + '">Accept reply</button></div>';
   }
@@ -1085,7 +1352,80 @@
       var code = ta ? ta.value.trim() : '';
       if (code) acceptInvite(sN, code);
     };
+    var cp = document.getElementById('invCopy' + i);
+    if (cp) cp.onclick = function () {
+      var sN = +this.id.replace(/\D+/g, '');
+      var inv = mpState.invite && mpState.invite[sN];
+      if (inv && inv.code) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(inv.code).then(function () {
+            toast('Invite code copied', 'good', 'check');
+          }).catch(function () {
+            toast('Code: ' + inv.code.slice(0, 20) + '...', 'info', 'share');
+          });
+        } else {
+          toast('Code: ' + inv.code.slice(0, 20) + '...', 'info', 'share');
+        }
+      }
+    };
+    var qrBtn = document.getElementById('invQr' + i);
+    if (qrBtn) qrBtn.onclick = function () {
+      var sN = +this.id.replace(/\D+/g, '');
+      var inv = mpState.invite && mpState.invite[sN];
+      var code = inv ? inv.code : (mpState.room ? mpState.room.id : '');
+      showQrModal(code);
+    };
+    var aiBtn = document.getElementById('invAi' + i);
+    if (aiBtn) aiBtn.onclick = function () {
+      var sN = +this.id.replace(/\D+/g, '');
+      if (mpState.room) mpState.room.setAiSeat(sN, 1);
+    };
+    var aiRem = document.getElementById('aiRemove' + i);
+    if (aiRem) aiRem.onclick = function () {
+      var sN = +this.id.replace(/\D+/g, '');
+      if (mpState.room) {
+        mpState.room.setAiSeat(sN, null);
+        mpState.room.inviteSeat(sN).then(function (inv) {
+          mpState.invite[sN] = inv;
+          renderRoom();
+        }).catch(function () { renderRoom(); });
+      }
+    };
   }
+
+  function showQrModal(code) {
+    var scr = $('scr-room'); if (!scr) return;
+    var existing = $('qrModalOv'); if (existing) existing.remove();
+    var modal = el('div', { class: 'qr-overlay', id: 'qrModalOv' });
+    modal.innerHTML = '<div class="qr-modal">' +
+      '<div class="title" style="font-size:16px;font-weight:700">Scan to Join</div>' +
+      '<div class="qr-frame"><canvas id="qrCanvas" width="180" height="180"></canvas></div>' +
+      '<div class="mp-note" style="text-align:center;font-size:11px">Scan with camera or Ludora app</div>' +
+      '<button class="btn btn-primary" id="qrClose" style="width:100%">Close</button></div>';
+    scr.appendChild(modal);
+    var cv = $('qrCanvas');
+    if (cv && Qr && Qr.encodeText) {
+      var url = location.origin + '/#j=' + code;
+      var q = Qr.encodeText(url);
+      if (q) {
+        var ctx = cv.getContext('2d');
+        var sz = q.size;
+        var mod = Math.floor(180 / sz);
+        var off = Math.floor((180 - mod * sz) / 2);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, 180, 180);
+        ctx.fillStyle = '#000000';
+        for (var r = 0; r < sz; r++) {
+          for (var c = 0; c < sz; c++) {
+            if (q.modules[r][c]) ctx.fillRect(off + c * mod, off + r * mod, mod, mod);
+          }
+        }
+      }
+    }
+    $('qrClose').onclick = function () { modal.remove(); };
+    modal.onclick = function (e) { if (e.target === modal) modal.remove(); };
+  }
+
   function renderRoomSeats(force) {
     var scr = $('scr-room'); if (!scr || !mpState.room) return;
     var host = $('roomSeats'); if (!host) return;
@@ -1148,7 +1488,7 @@
     if (!peer) { toast('No pending invite for that seat', 'info', 'info'); return; }
     peer.acceptAnswer(code).then(function () {
       toast('Connected!', 'good', 'check');
-    }).catch(function (e) { toast('That reply code did not work', 'info', 'info'); });
+    }).catch(function () { toast('That reply code did not work', 'info', 'info'); });
   }
 
   function connectToRoom() {
@@ -1188,7 +1528,7 @@
       release();
     }
   }
-  function guestEvent(name, data) {
+  function guestEvent(name) {
     if (name === 'welcome') { toast('Connected to room', 'good', 'check'); }
   }
   function startOnlineMatch() {
@@ -1202,7 +1542,7 @@
     wireMatch(g, cfg);
     setNetChip('connected', 'Connected');
     room.started();
-    g.begin && g.begin();
+    if (g.begin) g.begin();
     show('scr-game', { dir: 'present' });
   }
 
@@ -1246,8 +1586,6 @@
     var menu = $('pauseMenu'); if (menu) menu.classList.add('hidden');
     var pauseBtn = $('pauseBtn');
     if (pauseBtn) pauseBtn.onclick = function () { openPause(); };
-    var pmR = $('pmResume'); if (pmR) pmR.onclick = function () { closePause(); };
-    var pmQ = $('pmQuit'); if (pmQ) pmQ.onclick = function () { closePause(); goHome(); };
     /* clean continuation affordances */
     refreshHome();
   }
@@ -1262,14 +1600,12 @@
     $('pmResume').onclick = function () { closePause(); };
     $('pmQuit').onclick = function () { closePause(); goHome(); };
     menu.classList.remove('hidden');
-    overlayOpen = true;
   }
   function closePause() {
     var menu = $('pauseMenu'); if (!menu) return;
     menu.classList.add('hidden');
     var g = Game.active();
-    if (g) { try { g.resumePaused && g.resumePaused(); } catch (e) {} }
-    overlayOpen = false;
+    if (g) { try { if (g.resumePaused) g.resumePaused(); } catch (e) {} }
   }
   function refreshHome() {
     var scr = $('scr-home'); if (!scr) return;
@@ -1287,9 +1623,6 @@
       /* attempt a live re-sync with the room when the connection returns */
       try { if (mpState.room.online) mpState.room.online(); } catch (e) {}
     }
-  }
-  function toggleOfflineBadge(show) {
-    var badge = $('offlineBadge'); if (badge) badge.classList.toggle('hidden', !show);
   }
 
   var UI = {
