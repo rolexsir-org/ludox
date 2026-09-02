@@ -70,6 +70,20 @@
     this.running = true;
     this.pendingBegin = true;
     this.raf = requestAnimationFrame(this._loopBound);
+    /* board input: direct pawn selection when a 6 gives multiple moves */
+    var self = this;
+    if (this.canvas && this.canvas._ludoraDown) {
+      try { this.canvas.removeEventListener('click', this.canvas._ludoraDown); } catch (e) {}
+      try { this.canvas.removeEventListener('pointerdown', this.canvas._ludoraDown); } catch (e) {}
+      try { this.canvas.removeEventListener('touchstart', this.canvas._ludoraTouch); } catch (e) {}
+    }
+    var downFn = function (ev) { self.pointerDown(ev); };
+    var touchFn = function (ev) { ev.preventDefault(); self.pointerDown(ev); };
+    this.canvas._ludoraDown = downFn;
+    this.canvas._ludoraTouch = touchFn;
+    this.canvas.addEventListener('click', downFn, { passive: true });
+    this.canvas.addEventListener('pointerdown', downFn, { passive: true });
+    this.canvas.addEventListener('touchstart', touchFn, { passive: false });
   };
 
   Match.prototype.observeBoard = function () {
@@ -814,7 +828,7 @@
 
   /* ---------- input ---------- */
   Match.prototype.hitTest = function (px, py) {
-    if (this.st.phase !== 'move' || this.st.seats[this.st.turn].kind !== 'human' || !this.legal.length) return null;
+    if (this.st.phase !== 'move' || !this.isLocalSeat(this.st.turn) || this.st.seats[this.st.turn].kind !== 'human' || !this.legal.length) return null;
     var cell = this.m.cell, best = null, bestD = cell * 0.75;
     var self = this;
     var cand = {};
@@ -830,8 +844,17 @@
 
   Match.prototype.pointerDown = function (ev) {
     if (this.destroyed) return;
+    var cx, cy;
+    if (ev.touches && ev.touches.length) {
+      cx = ev.touches[0].clientX;
+      cy = ev.touches[0].clientY;
+    } else {
+      cx = ev.clientX;
+      cy = ev.clientY;
+    }
+    if (cx == null || cy == null) return;
     var rect = this.canvas.getBoundingClientRect();
-    var x = ev.clientX - rect.left, y = ev.clientY - rect.top;
+    var x = cx - rect.left, y = cy - rect.top;
     var mv = this.hitTest(x, y);
     if (mv) { Audio2.play('tap'); this.executeMove(mv); }
   };
@@ -919,6 +942,10 @@
     this.clearTimers();
     cancelAnimationFrame(this.raf);
     if (this.ro) { try { this.ro.disconnect(); } catch (e) {} this.ro = null; }
+    if (this.canvas) {
+      try { if (this.canvas._ludoraDown) { this.canvas.removeEventListener('click', this.canvas._ludoraDown); this.canvas.removeEventListener('pointerdown', this.canvas._ludoraDown); this.canvas._ludoraDown = null; } } catch (e) {}
+      try { if (this.canvas._ludoraTouch) { this.canvas.removeEventListener('touchstart', this.canvas._ludoraTouch); this.canvas._ludoraTouch = null; } } catch (e) {}
+    }
   };
 
   /* ---------- module API ---------- */
