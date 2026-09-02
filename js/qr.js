@@ -280,15 +280,6 @@
       }
     }
     // rule 3: finder-like patterns 1011101 with 0000 either side
-    function pattern(row, col, dr, dc) {
-      var s = '';
-      for (var k = -4; k <= 7; k++) {
-        var rr = row + dr * k, cc = col + dc * k;
-        if (rr < 0 || rr >= size || cc < 0 || cc >= size) { s += ' '; continue; }
-        s += m[rr][cc] ? '1' : '0';
-      }
-      return s;
-    }
     var PAT1 = '10111010000', PAT0 = '00001011101';
     for (var rr2 = 0; rr2 < size; rr2++) {
       var s1 = '', s2 = '';
@@ -298,7 +289,6 @@
         if (w1 === PAT1 || w1 === PAT0) score += 40;
         if (w2 === PAT1 || w2 === PAT0) score += 40;
       }
-      void pattern; void PAT0; void PAT1;
     }
     // rule 4: dark proportion
     var dark = 0;

@@ -212,11 +212,9 @@
     var rules = {};
     if (t.type === 'rush') rules.firstToCaptures = 2;
     if (rnd() < 0.25) {
-      var hc = seatCount === 2 ? 2 : Math.floor(rnd() * 3) + 2;
       var hs = {};
       hs[2] = [0, 1, 2, 3].map(function () { return Math.floor(rnd() * 20); });
       rules.headStart = hs;
-      void hc;
     }
     return { type: t.type, name: t.name, desc: t.desc, seats: seats, rules: rules };
   }
