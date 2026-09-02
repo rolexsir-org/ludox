@@ -226,8 +226,7 @@
   function seatPodTemplate() {
     return '<div class="sp-top"><span class="sp-avatar"></span>' +
       '<div class="sp-id"><div class="sp-name"></div><div class="sp-sub"></div></div>' +
-      '<span class="sp-team"></span>' +
-      '<span class="sp-status"><span class="dot"></span><span class="sp-status-text"></span></span></div>' +
+      '<span class="sp-team" style="display:none"></span></div>' +
       '<div class="sp-homes"></div>' +
       '<div class="sp-dice"><button class="sp-roll" aria-label="Roll the dice"><div class="sp-cube">' + PIP_GRID + '</div></button>' +
       '<span class="sp-hint">Roll</span></div>';
@@ -255,9 +254,9 @@
         name: pod.querySelector('.sp-name'),
         sub: pod.querySelector('.sp-sub'),
         team: pod.querySelector('.sp-team'),
-        status: pod.querySelector('.sp-status-text'),
-        statusRoot: pod.querySelector('.sp-status'),
-        dot: pod.querySelector('.sp-status .dot'),
+        status: pod.querySelector('.sp-sub'),   /* reuse sub for status text */
+        statusRoot: null,
+        dot: null,
         homes: pod.querySelector('.sp-homes'),
         dice: pod.querySelector('.sp-roll'),
         cube: pod.querySelector('.sp-cube'),
@@ -284,7 +283,9 @@
     if (active && s.kind === 'ai') return { cls: 'status-ai', text: 'Thinking' };
     if (active && s.kind === 'human') {
       if (online && !isLocal) return { cls: 'status-waiting', text: g.seatIsRemote(i) ? 'Waiting' : 'Rolling' };
-      return { cls: 'status-turn', text: 'Your turn' };
+      var phase = st.phase;
+      var txt = phase === 'move' ? 'Pick a pawn' : (phase === 'anim' ? 'Moving…' : 'Your turn');
+      return { cls: 'status-turn', text: txt };
     }
     if (s.kind === 'ai') return { cls: 'status-ai', text: 'AI' };
     if (online && g.seatIsRemote(i) && g.netHost && !g.netHost.isSeatLive(i)) return { cls: 'status-offline', text: 'Offline' };
@@ -342,9 +343,8 @@
       ref.root.classList.toggle('inactive', !active);
       ref.root.classList.remove('status-offline', 'status-waiting', 'status-ai', 'status-turn');
       ref.root.classList.add(status.cls || 'status-waiting');
-      ref.status.textContent = status.text;
-      ref.dot.classList.remove('on', 'off', 'warn');
-      ref.dot.classList.add('dot');
+      /* show status text in the sub label */
+      ref.sub.textContent = active ? status.text : (s.kind === 'ai' ? 'AI' : 'Waiting');
       /* homes */
       var homes = 0;
       for (var t = 0; t < 4; t++) if (st.tokens[i][t] === E.HOME) homes++;
@@ -895,14 +895,17 @@
       (prof.history.length ? historyHTML(prof.history) : '<div class="mp-note">No matches yet.</div>');
     $('prBack').onclick = function () { back(); };
   }
-  function statCell(v, k) { return '<div class="stat-cell"><div class="v">' + v + '</div><div class="k">' + k + '</div></div>'; }
+  function statCell(v, k) { return '<div class="stat-cell"><div class="n">' + v + '</div><div class="l">' + k + '</div></div>'; }
   function historyHTML(h) {
-    return '<div class="list">' + h.slice(0, 8).map(function (e) {
+    var colors = { w: '#22C55E', l: '#EF4444', p: '#8B8FA3' };
+    return '<div style="display:flex;flex-direction:column;gap:6px">' + h.slice(0, 8).map(function (e) {
       var res = e.result === 'w' ? 'w' : (e.result === 'l' ? 'l' : 'p');
       var label = e.result === 'w' ? 'Win' : (e.result === 'l' ? 'Loss' : 'Play');
-      return '<div class="hist-row"><span class="res ' + res + '">' + label + '</span>' +
-        '<div><div class="t">' + esc(e.mode === 'daily' ? 'Daily Challenge' : (e.mode === 'online' ? 'Online Match' : (e.mode === 'pass' ? 'Pass & Play' : 'Quick Match'))) + '</div>' +
-        '<div class="s">' + esc(e.seatNames[0] || '') + '</div></div></div>';
+      var modeText = e.mode === 'daily' ? 'Daily' : (e.mode === 'online' ? 'Online' : (e.mode === 'pass' ? 'Pass & Play' : 'Quick Match'));
+      return '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:12px;background:var(--glass-bg);border:1px solid var(--glass-border)">' +
+        '<span style="font-size:11px;font-weight:750;letter-spacing:.06em;color:' + colors[res] + '">' + label + '</span>' +
+        '<div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:640">' + esc(modeText) + '</div>' +
+        '<div style="font-size:11px;color:var(--text-2)">' + esc(e.seatNames[0] || '') + '</div></div></div>';
     }).join('') + '</div>';
   }
 

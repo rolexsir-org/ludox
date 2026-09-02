@@ -46,7 +46,7 @@
   /* which board side a player's yard/home points to (0=Red bottom,1=Green left,2=Yellow top,3=Blue right). */
   var SIDE_OF = ['bottom', 'left', 'top', 'right'];
   /* reserved lane width (x) / height (y) for the four player pods hugging the board.
-     Standalone (desktop/tablet) vs compact (narrow phones) so the board stays the hero. */
+     Pod is 92px wide (compact: 72px) + 12px padding on each side. */
   function podLanes() {
     var iw = (typeof global === 'object' && typeof global.innerWidth === 'number') ? global.innerWidth : 420;
     var compact = iw < 480;

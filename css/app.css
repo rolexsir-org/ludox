@@ -4,6 +4,7 @@
    Everything supports the board — nothing competes with it.
    ========================================================================= */
 
+/* ========== TOKENS ========== */
 :root {
   --bg: #080A12;
   --bg-raise: #0E1018;
@@ -20,7 +21,8 @@
   --red: #EF4444;    --red-deep: #DC2626;   --red-glow: #F87171;
   --green: #22C55E;  --green-deep: #16A34A;  --green-glow: #4ADE80;
   --yellow: #FBBF24; --yellow-deep: #D97706; --yellow-glow: #FDE047;
-  --blue: #3B82F6;   --blue-deep: #2563EB;   --blue-glow: #60A5FA;
+  --blue:   #3B82F6; --blue-deep:   #2563EB; --blue-glow:   #60A5FA;
+
   --danger: #EF4444;
   --ok: #22C55E;
   --gold: #F5C64C;
@@ -30,8 +32,8 @@
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   --spring: cubic-bezier(0.30, 1.06, 0.32, 1);
-  --ease: cubic-bezier(0.22, 0.68, 0.26, 1);
-  --press: cubic-bezier(0.3, 0.9, 0.4, 1);
+  --ease:   cubic-bezier(0.22, 0.68, 0.26, 1);
+  --press:  cubic-bezier(0.3,  0.9,  0.4,  1);
 
   --r-xl: 24px; --r-lg: 16px; --r-md: 12px; --r-sm: 8px;
   --sat: env(safe-area-inset-top, 0px);
@@ -102,7 +104,7 @@ input, textarea { font: inherit; user-select: text; -webkit-user-select: text; }
   scrollbar-width: none;
 }
 .screen::-webkit-scrollbar { display: none; }
-.screen.active { display: flex; z-index: 2; }
+.screen.active  { display: flex; z-index: 2; }
 .screen.leaving { z-index: 1; }
 
 .screen.active[data-nav="push"]    { animation: pushIn 0.28s var(--ease) both; }
@@ -128,6 +130,7 @@ input, textarea { font: inherit; user-select: text; -webkit-user-select: text; }
 .tile {
   width: 28px; height: 28px; border-radius: 8px; flex: none;
   display: grid; place-items: center; color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.14), 0 4px 10px rgba(0,0,0,0.22);
 }
 .tile .ic { width: 15px; height: 15px; }
 .t-red    { background: #B83C38; }
@@ -154,6 +157,7 @@ input, textarea { font: inherit; user-select: text; -webkit-user-select: text; }
   font-family: var(--font-display);
   font-size: 21px; font-weight: 600; letter-spacing: -0.012em; flex: 1;
 }
+.nav .title { font-size: 22px; font-weight: 620; letter-spacing: -0.01em; flex: 1; }
 .navbtn {
   width: 36px; height: 36px; border-radius: 10px;
   display: grid; place-items: center;
@@ -162,7 +166,7 @@ input, textarea { font: inherit; user-select: text; -webkit-user-select: text; }
 }
 .navbtn:active { transform: scale(0.88); color: var(--text); }
 
-/* ---------- buttons ---------- */
+/* ========== BUTTONS ========== */
 .btn {
   display: flex; align-items: center; justify-content: center; gap: 8px;
   border-radius: var(--r-md);
@@ -190,9 +194,9 @@ input, textarea { font: inherit; user-select: text; -webkit-user-select: text; }
 .btn-tint:active { background: var(--glass-bg-2); }
 .btn-ghost { height: 40px; color: var(--text-2); font-size: 14px; }
 .btn-danger { color: var(--danger); }
-.btn[disabled] { opacity: 0.35; pointer-events: none; }
+.btn[disabled] { opacity: 0.38; pointer-events: none; }
 
-/* segmented control */
+/* Segmented control */
 .seg {
   position: relative; display: flex;
   background: var(--glass-bg); border-radius: var(--r-md); padding: 3px;
@@ -213,8 +217,8 @@ input, textarea { font: inherit; user-select: text; -webkit-user-select: text; }
   font-size: 13.5px; font-weight: 550; color: var(--text-2);
   transition: color 0.16s;
 }
-.seg button.on { color: var(--text); font-weight: 620; }
 
+/* Cards, labels, rows */
 .card {
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
@@ -222,13 +226,30 @@ input, textarea { font: inherit; user-select: text; -webkit-user-select: text; }
   border-radius: var(--r-lg); padding: 16px;
   box-shadow: var(--glass-shadow);
 }
+.card:active { background: var(--glass-bg-2); transform: scale(0.99); }
+.card .t { font-size: 15px; font-weight: 640; }
+.card .s { font-size: 12px; color: var(--text-2); margin-top: 1px; }
+.card .grow { flex: 1; min-width: 0; }
 .label {
   font-size: 10.5px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;
   color: var(--text-3); margin: 24px 1px 8px;
 }
+.label:first-child { margin-top: 2px; }
 
 .row { display: flex; align-items: center; gap: 12px; }
 .grow { flex: 1; min-width: 0; }
+.hidden { display: none !important; }
+.setup { display: flex; flex-direction: column; gap: 0; }
+.sub  { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+.desc { font-size: 13px; color: var(--text-2); line-height: 1.5; }
+.row { display: flex; align-items: center; gap: 8px; }
+.room-id-chip {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 20px; font-weight: 700; letter-spacing: 0.16em;
+  text-align: center; padding: 14px 16px; border-radius: var(--r-md);
+  background: var(--glass-bg); border: 1px solid var(--glass-border);
+  display: block;
+}
 
 /* toggle */
 .toggle {
@@ -1050,3 +1071,62 @@ html[data-view="desktop"] #pSeats { display: grid; grid-template-columns: 1fr 1f
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01s !important; animation-delay: 0s !important; transition-duration: 0.06s !important; }
 }
+.team-card.team-a .team-name { color: #E0837E; }
+.team-card.team-b .team-name { color: #5CC98A; }
+.team-card .team-members { font-size: 10px; color: var(--text-2); font-weight: 560; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.team-card .team-score { font-size: 10px; color: var(--text-3); font-weight: 620; }
+.team-card .team-score b { color: var(--text); }
+
+/* ========== LOADING / ERROR STATES ========== */
+.state-hint {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 12px 14px; margin: 8px 0; border-radius: var(--r-md);
+  background: var(--glass-bg); border: 1px solid var(--glass-border);
+  font-size: 13px; font-weight: 560; color: var(--text-2);
+}
+.state-hint .ic { width: 16px; height: 16px; color: var(--yellow); }
+.state-hint.loading .ic { animation: spin 0.8s linear infinite; color: var(--text-2); }
+.state-hint.error   .ic { color: var(--danger); }
+.state-hint.ok      .ic { color: var(--ok); }
+.state-hint .spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--glass-raise-2); border-top-color: var(--text-2); animation: spin 0.8s linear infinite; flex: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes dropIn { from { transform: translateX(-50%) translateY(-8px); opacity: 0; } }
+
+/* ========== RESPONSIVE — COMPACT PHONES ========== */
+/* On narrow phones: board takes most of the height.
+   All pods float at their edge but scale down. */
+@media (max-width: 479px) {
+  .seat-pod { width: 70px; padding: 6px 6px 5px; gap: 4px; }
+  .seat-pod .sp-avatar { width: 20px; height: 20px; font-size: 9px; border-radius: 6px; }
+  .seat-pod .sp-name   { font-size: 9.5px; }
+  .seat-pod .sp-sub    { font-size: 7px; }
+  .seat-pod .sp-homes  { display: none; }
+  .seat-pod .sp-team   { display: none !important; }
+  .seat-pod .sp-dice   { height: 44px; }
+  .seat-pod .sp-roll   { width: 40px; height: 40px; border-radius: 12px; }
+  .seat-pod .sp-cube   { width: 24px; height: 24px; padding: 4px; }
+  .seat-pod .sp-hint   { bottom: -4px; font-size: 7px; }
+  #gameBar { margin: 2px 8px calc(var(--sab) + 4px); padding: 5px 8px 5px 11px; min-height: 42px; }
+}
+
+/* Landscape phones: tighten everything vertically */
+@media (max-height: 520px) and (orientation: landscape) {
+  #boardWrap { padding-top: calc(var(--sat) + 2px); }
+  .seat-pod  { padding: 5px 7px 4px; gap: 4px; }
+  .seat-pod .sp-dice { height: 38px; }
+  .seat-pod .sp-roll { width: 38px; height: 38px; }
+  .seat-pod .sp-cube { width: 24px; height: 24px; }
+  #gameBar { margin: 2px 8px calc(var(--sab) + 4px); min-height: 42px; }
+}
+
+/* ========== DESKTOP ========== */
+html[data-view="desktop"] #scr-game { flex-direction: row; }
+html[data-view="desktop"] #boardWrap { padding: 8px 16px; }
+html[data-view="desktop"] #gameBar {
+  flex-direction: column; width: 130px; flex: none; min-height: 0;
+  margin: 10px 12px 10px 6px;
+  padding: 14px 10px;
+  justify-content: center;
+}
+html[data-view="desktop"] #turnChip { flex-direction: column; text-align: center; gap: 6px; }
+html[data-view="desktop"] #turnChip .grow { text-align: center; }
