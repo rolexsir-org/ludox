@@ -226,8 +226,7 @@
   function seatPodTemplate() {
     return '<div class="sp-top"><span class="sp-avatar"></span>' +
       '<div class="sp-id"><div class="sp-name"></div><div class="sp-sub"></div></div>' +
-      '<span class="sp-team"></span>' +
-      '<span class="sp-status"><span class="dot"></span><span class="sp-status-text"></span></span></div>' +
+      '<span class="sp-team" style="display:none"></span></div>' +
       '<div class="sp-homes"></div>' +
       '<div class="sp-dice"><button class="sp-roll" aria-label="Roll the dice"><div class="sp-cube">' + PIP_GRID + '</div></button>' +
       '<span class="sp-hint">Roll</span></div>';
@@ -255,9 +254,9 @@
         name: pod.querySelector('.sp-name'),
         sub: pod.querySelector('.sp-sub'),
         team: pod.querySelector('.sp-team'),
-        status: pod.querySelector('.sp-status-text'),
-        statusRoot: pod.querySelector('.sp-status'),
-        dot: pod.querySelector('.sp-status .dot'),
+        status: pod.querySelector('.sp-sub'),   /* reuse sub for status text */
+        statusRoot: null,
+        dot: null,
         homes: pod.querySelector('.sp-homes'),
         dice: pod.querySelector('.sp-roll'),
         cube: pod.querySelector('.sp-cube'),
@@ -284,7 +283,9 @@
     if (active && s.kind === 'ai') return { cls: 'status-ai', text: 'Thinking' };
     if (active && s.kind === 'human') {
       if (online && !isLocal) return { cls: 'status-waiting', text: g.seatIsRemote(i) ? 'Waiting' : 'Rolling' };
-      return { cls: 'status-turn', text: 'Your turn' };
+      var phase = st.phase;
+      var txt = phase === 'move' ? 'Pick a pawn' : (phase === 'anim' ? 'Moving…' : 'Your turn');
+      return { cls: 'status-turn', text: txt };
     }
     if (s.kind === 'ai') return { cls: 'status-ai', text: 'AI' };
     if (online && g.seatIsRemote(i) && g.netHost && !g.netHost.isSeatLive(i)) return { cls: 'status-offline', text: 'Offline' };
@@ -342,9 +343,8 @@
       ref.root.classList.toggle('inactive', !active);
       ref.root.classList.remove('status-offline', 'status-waiting', 'status-ai', 'status-turn');
       ref.root.classList.add(status.cls || 'status-waiting');
-      ref.status.textContent = status.text;
-      ref.dot.classList.remove('on', 'off', 'warn');
-      ref.dot.classList.add('dot');
+      /* show status text in the sub label */
+      ref.sub.textContent = active ? status.text : (s.kind === 'ai' ? 'AI' : 'Waiting');
       /* homes */
       var homes = 0;
       for (var t = 0; t < 4; t++) if (st.tokens[i][t] === E.HOME) homes++;
@@ -367,29 +367,15 @@
   function updateTurnChip(st) {
     var chip = $('turnChip'); if (!chip || !st) return;
     var seat = st.turn, s = st.seats[seat];
-    chip.innerHTML = avatarHTML(s.avatar != null ? s.avatar : seat, 30) +
+    var stateText = s.kind === 'ai' ? 'Thinking…' : (st.phase === 'move' ? 'Choose a pawn' : 'Tap to roll');
+    chip.innerHTML = avatarHTML(s.avatar != null ? s.avatar : seat, 28) +
       '<div class="grow"><div class="t">' + esc(s.name || ('Player ' + (seat + 1))) + '</div>' +
-      '<div class="s">' + (s.kind === 'ai' ? 'Thinking…' : (st.phase === 'move' ? 'Choose a move' : 'Roll to begin')) + '</div></div>';
+      '<div class="s">' + stateText + '</div></div>';
   }
 
+  /* updateHud: updates seat pods and the foot turn chip (no top pills bar) */
   function updateHud(d) {
     var g = activeMatch; if (!g) return;
-    var hud = $('hud'); if (!hud) return;
-    var st = g.st, img = '';
-    for (var i = 0; i < st.seats.length; i++) {
-      var s = st.seats[i];
-      var homes = 0;
-      for (var t = 0; t < 4; t++) if (st.tokens[i][t] === E.HOME) homes++;
-      var active = st.turn === i;
-      img += '<div class="pill' + (active ? ' active' : '') + '" style="color:' + colorCss(s.color) + '" role="button" aria-label="' + esc(s.name) + '">' +
-        avatarHTML(s.avatar != null ? s.avatar : i, 30) +
-        '<div class="meta"><div class="name">' + esc(s.name) + '</div>' +
-        '<div class="sub"><span class="caps"><svg class="ic"><use href="#i-crown"/></svg>' + st.stats[i].homes + '</span>' +
-        '<span class="homes">' + [0,1,2,3].map(function (t2) { return '<i class="' + (t2 < homes ? 'on' : '') + '"></i>'; }).join('') + '</span>' +
-        (active && (d && d.thinking) ? '<span class="thinking"></span>' : '') + '</div></div>' +
-        '<span class="bar" style="background:currentColor"></span></div>';
-    }
-    hud.innerHTML = img;
     if (g.st) syncSeatPods(g.st, d);
   }
 
@@ -398,15 +384,17 @@
     var st = g.st, turn = st.turn, ref = podEls[turn];
     if (ref) {
       if (d && (d.state === 'rolling' || d.state === 'done')) {
-        lastPodValue[turn] = d.value;
-        setPips(ref.cube, d.value);
+        lastPodValue[turn] = d.value || lastPodValue[turn] || 1;
+        setPips(ref.cube, lastPodValue[turn]);
       }
       ref.cube.classList.toggle('rolling', !!(d && d.state === 'rolling'));
+      /* canInteract: only in roll phase, only the active human local seat */
       var canInteract = !!(st.phase === 'roll' && st.seats[turn].kind === 'human' && g.isLocalSeat(turn) &&
-        d && (d.state === 'ready' || d.state === 'done'));
+        (!d || d.state === 'ready' || d.state === 'done'));
       ref.dice.disabled = !canInteract;
       ref.dice.classList.toggle('busy', !!(d && d.state === 'rolling'));
-      ref.hint.classList.toggle('show', !!(d && (d.state === 'ready' || d.state === 'done')));
+      /* hint shows only when the player CAN roll */
+      ref.hint.classList.toggle('show', canInteract && st.phase === 'roll');
     }
     syncSeatPods(st, d);
   }
@@ -907,14 +895,17 @@
       (prof.history.length ? historyHTML(prof.history) : '<div class="mp-note">No matches yet.</div>');
     $('prBack').onclick = function () { back(); };
   }
-  function statCell(v, k) { return '<div class="stat-cell"><div class="v">' + v + '</div><div class="k">' + k + '</div></div>'; }
+  function statCell(v, k) { return '<div class="stat-cell"><div class="n">' + v + '</div><div class="l">' + k + '</div></div>'; }
   function historyHTML(h) {
-    return '<div class="list">' + h.slice(0, 8).map(function (e) {
+    var colors = { w: '#22C55E', l: '#EF4444', p: '#8B8FA3' };
+    return '<div style="display:flex;flex-direction:column;gap:6px">' + h.slice(0, 8).map(function (e) {
       var res = e.result === 'w' ? 'w' : (e.result === 'l' ? 'l' : 'p');
       var label = e.result === 'w' ? 'Win' : (e.result === 'l' ? 'Loss' : 'Play');
-      return '<div class="hist-row"><span class="res ' + res + '">' + label + '</span>' +
-        '<div><div class="t">' + esc(e.mode === 'daily' ? 'Daily Challenge' : (e.mode === 'online' ? 'Online Match' : (e.mode === 'pass' ? 'Pass & Play' : 'Quick Match'))) + '</div>' +
-        '<div class="s">' + esc(e.seatNames[0] || '') + '</div></div></div>';
+      var modeText = e.mode === 'daily' ? 'Daily' : (e.mode === 'online' ? 'Online' : (e.mode === 'pass' ? 'Pass & Play' : 'Quick Match'));
+      return '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:12px;background:var(--glass-bg);border:1px solid var(--glass-border)">' +
+        '<span style="font-size:11px;font-weight:750;letter-spacing:.06em;color:' + colors[res] + '">' + label + '</span>' +
+        '<div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:640">' + esc(modeText) + '</div>' +
+        '<div style="font-size:11px;color:var(--text-2)">' + esc(e.seatNames[0] || '') + '</div></div></div>';
     }).join('') + '</div>';
   }
 
@@ -922,6 +913,8 @@
     var scr = $('scr-settings'); if (!scr) return;
     var prof = getProfile();
     var s = prof.settings;
+    if (s.sfxVol == null) s.sfxVol = 0.8;
+    if (s.musicVol == null) s.musicVol = 0.4;
     var themes = [{ v: 'dark', n: 'Dark' }, { v: 'light', n: 'Light' }, { v: 'auto', n: 'Auto' }];
     var layouts = [{ v: 'phone', n: 'Phone' }, { v: 'tablet', n: 'Tablet' }, { v: 'desktop', n: 'Desktop' }, { v: 'auto', n: 'Auto' }];
     scr.innerHTML =
@@ -931,10 +924,14 @@
       themes.map(function (t) { return '<button data-v="' + t.v + '" class="' + (s.theme === t.v ? 'on' : '') + '">' + t.n + '</button>'; }).join('') + '</div>' +
       '<div class="label">Layout</div><div class="seg" id="setLayout" style="--n:4">' +
       layouts.map(function (l) { return '<button data-v="' + l.v + '" class="' + ((s.layout || 'auto') === l.v ? 'on' : '') + '">' + l.n + '</button>'; }).join('') + '</div>' +
-      '<div class="label">Sound</div><div class="list"><button class="list-row" id="optSound"><span class="t grow">Sound effects</span>' +
-      '<span class="toggle' + (s.sound ? ' on' : '') + '" id="togSound"></span></button>' +
-      '<div class="label">Haptics</div><button class="list-row" id="optHaptics"><span class="t grow">Vibration</span>' +
-      '<span class="toggle' + (s.haptics ? ' on' : '') + '" id="togHaptics"></span></button></div>' +
+      '<div class="label">Audio</div><div class="list">' +
+      '<button class="list-row" id="optSound"><div class="tile t-gray" style="margin-right:4px"><svg class="ic ic-sm"><use href="#i-sound"/></svg></div><span class="t grow">Sound effects</span>' +
+      '<span class="toggle' + (s.sound !== false ? ' on' : '') + '" id="togSound"></span></button>' +
+      '<div class="list-row"><div class="tile t-gray" style="margin-right:4px"><svg class="ic ic-sm"><use href="#i-sound"/></svg></div><span class="t grow">SFX volume</span>' +
+      '<div class="settings-range"><input type="range" id="sfxVol" min="0" max="1" step="0.05" value="' + (s.sfxVol || 0.8) + '">' +
+      '<span class="val" id="sfxVolVal">' + Math.round((s.sfxVol || 0.8) * 100) + '</span></div></div>' +
+      '<button class="list-row" id="optHaptics"><div class="tile t-gray" style="margin-right:4px"><svg class="ic ic-sm"><use href="#i-buzz"/></svg></div><span class="t grow">Vibration</span>' +
+      '<span class="toggle' + (s.haptics !== false ? ' on' : '') + '" id="togHaptics"></span></button></div>' +
       '<div style="flex:1"></div>';
     $('sBack').onclick = function () { back(); };
     $$('#setTheme button', scr).forEach(function (b) {
@@ -952,9 +949,19 @@
       };
     });
     var togSound = $('togSound');
-    if (togSound) togSound.onclick = function () { s.sound = !s.sound; togSound.classList.toggle('on', s.sound); saveProfile(); Audio2.setEnabled(s.sound); };
+    if (togSound) togSound.onclick = function () {
+      s.sound = !(s.sound !== false); togSound.classList.toggle('on', s.sound !== false);
+      saveProfile(); Audio2.setEnabled(s.sound !== false);
+    };
+    var sfxSlider = $('sfxVol');
+    if (sfxSlider) sfxSlider.addEventListener('input', function () {
+      s.sfxVol = parseFloat(sfxSlider.value);
+      var vv = $('sfxVolVal'); if (vv) vv.textContent = Math.round(s.sfxVol * 100);
+      if (Audio2.setVolume) Audio2.setVolume(s.sfxVol);
+      saveProfile();
+    });
     var togH = $('togHaptics');
-    if (togH) togH.onclick = function () { s.haptics = !s.haptics; togH.classList.toggle('on', s.haptics); saveProfile(); Audio2.setHaptics(s.haptics); };
+    if (togH) togH.onclick = function () { s.haptics = !(s.haptics !== false); togH.classList.toggle('on', s.haptics !== false); saveProfile(); Audio2.setHaptics(s.haptics !== false); };
   }
 
   /* ========================= multiplayer ========================= */
