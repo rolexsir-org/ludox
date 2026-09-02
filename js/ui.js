@@ -595,6 +595,9 @@
     try { saved = Game.saved(); } catch (e) {}
     var continueCard = saved ? '<button class="card" id="btnContinue" style="width:100%;text-align:left">' +
       '<span class="t">Continue match</span><span class="s">' + esc((saved.cfg && saved.cfg.mode) || 'Quick Match') + '</span></button>' : '';
+    var isInstalled = (typeof navigator !== 'undefined' && navigator.standalone === true) || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    var canInstall = !!installEvent && !isInstalled;
+    var isIOS = typeof navigator !== 'undefined' && /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent) && !/CriOS/.test(navigator.userAgent);
     scr.innerHTML =
       '<div class="home-cols">' +
         '<div class="home-hero"><svg class="mark" viewBox="0 0 96 96"><use href="#i-pawn"/></svg>' +
@@ -610,7 +613,9 @@
             '<button class="btn btn-tint" id="btnProfile" style="--d:0"><svg class="ic"><use href="#i-user"/></svg>Profile</button>' +
             '<button class="btn btn-tint" id="btnRules" style="--d:1"><svg class="ic"><use href="#i-info"/></svg>Rules</button>' +
             '<button class="btn btn-tint" id="btnSettings" style="--d:2"><svg class="ic"><use href="#i-buzz"/></svg>Settings</button>' +
+            (canInstall ? '<button class="btn btn-tint" id="btnInstall" style="--d:3"><svg class="ic"><use href="#i-download"/></svg>Install Ludora</button>' : '') +
           '</div>' +
+          (isIOS && !isInstalled ? '<div class="ios-hint" style="font-size:11px;color:rgba(255,255,255,.7);margin-top:6px;text-align:center;">Add to Home Screen: tap Share, then Add to Home Screen</div>' : '') +
           '<div class="home-build">Ludora v' + APP_VERSION + '</div>' +
         '</div>' +
       '</div>';
@@ -621,6 +626,8 @@
     $('btnProfile').onclick = function () { navigate('scr-profile'); renderProfile(); };
     $('btnRules').onclick = function () { navigate('scr-rules'); renderRules(); };
     $('btnSettings').onclick = function () { navigate('scr-settings'); renderSettings(); };
+    var btnInstall = $('btnInstall');
+    if (btnInstall) btnInstall.onclick = function () { if (installEvent) installEvent.prompt(); };
     var cont = $('btnContinue');
     if (cont) cont.onclick = function () {
       var pkt = Game.saved();

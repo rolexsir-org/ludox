@@ -127,6 +127,10 @@
     window.addEventListener('beforeinstallprompt', function (e) {
       e.preventDefault();
       LudoraUI.setInstallEvent(e);
+      try { LudoraUI.refreshHome(); } catch (e2) {}
+    });
+    window.addEventListener('appinstalled', function () {
+      try { LudoraUI.refreshHome(); } catch (e2) {}
     });
   }
 
